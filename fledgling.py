@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-# Name:        calTest
+# Name:        fledgling
 # Purpose:
 #
 # Author:      krh5058
@@ -56,7 +56,7 @@ parser = argparse.ArgumentParser(
 # application, including client_id and client_secret. You can see the Client ID
 # and Client secret on the APIs page in the Cloud Console:
 # <https://cloud.google.com/console#/project/561458633478/apiui>
-CLIENT_SECRETS = os.path.join(os.path.dirname(__file__), 'client_secrets.json')
+CLIENT_SECRETS = os.path.join(os.path.dirname(__file__), 'config/client_secrets.json')
 
 # Set up a Flow object to be used for authentication.
 # Add one or more of the following scopes. PLEASE ONLY ADD THE SCOPES YOU
@@ -79,6 +79,7 @@ def main(argv):
     storage = file.Storage('sample.dat')
     credentials = storage.get()
     if credentials is None or credentials.invalid:
+        print('Using storage...')
         credentials = tools.run_flow(FLOW, storage, flags)
 
     # Create an httplib2.Http object to handle our HTTP requests and authorize it
@@ -90,10 +91,15 @@ def main(argv):
     service = discovery.build('calendar', 'v3', http=http)
 
     try:
-##        event = {'summary': 'test','start': {'dateTime': '2014-05-24T10:00:00.000-04:00'},'end': {'dateTime': '2014-05-24T10:30:00.000-04:00'}}
-##        created_event = service.events().insert(calendarId='heflab@gmail.com', body=event).execute()
-##        print("Success! Now add code here.")
-        request = service.events().list(calendarId='b4h134knp68e157iavnrrlfho4@group.calendar.google.com')
+        request = service.events().list(
+##            calendarId='b4h134knp68e157iavnrrlfho4@group.calendar.google.com', ## MRI Slots
+            calendarId='7pvr3e5ebphbtih6l1n2044ko4@group.calendar.google.com', ## Scanner Operator Availability
+            singleEvents=True,
+            orderBy="startTime",
+            timeZone = "America/New_York",
+            timeMin = "2014-04-21T00:00:00-00:00",
+            timeMax = "2014-04-28T00:00:00-00:00"
+            )
         # Loop until all pages have been processed.
         while request != None:
             # Get the next page.
@@ -103,6 +109,8 @@ def main(argv):
             for event in response.get('items', []):
                 # The event object is a dict object with a 'summary' key.
                 print(event.get('summary', 'NO SUMMARY'))
+                print(event.get('start', 'NO START'))
+                print(event.get('end', 'NO END'))
                 # Get the next request object by passing the previous request object to
                 # the list_next method.
                 request = service.events().list_next(request, response)
