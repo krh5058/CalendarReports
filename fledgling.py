@@ -46,6 +46,10 @@ from oauth2client import file
 from oauth2client import client
 from oauth2client import tools
 
+# Additional imports
+from datetime import timedelta, datetime
+import re
+
 # Parser for command-line arguments.
 parser = argparse.ArgumentParser(
     description=__doc__,
@@ -69,6 +73,15 @@ FLOW = client.flow_from_clientsecrets(CLIENT_SECRETS,
     ],
     message=tools.message_if_missing(CLIENT_SECRETS))
 
+# Date string handling
+datestring_pattern = re.compile(r'(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})')
+
+def RFC3339_to_seconds(date_string):
+    datestrings = datestring_pattern.match(date_string)
+    date_num = datetime(int(datestrings.group('year')),int(datestrings.group('month')),int(datestrings.group('day')),int(datestrings.group('hour')),int(datestrings.group('minute')))
+    return date_num.timestamp()
+
+# Main
 def main(argv):
     # Parse the command-line flags.
     flags = parser.parse_args(argv[1:])
@@ -97,6 +110,7 @@ def main(argv):
             singleEvents=True,
             orderBy="startTime",
             timeZone = "America/New_York",
+##            TODO: Perform weekly/daily split
             timeMin = "2014-04-21T00:00:00-00:00",
             timeMax = "2014-04-28T00:00:00-00:00"
             )
@@ -110,7 +124,13 @@ def main(argv):
                 # The event object is a dict object with a 'summary' key.
                 print(event.get('summary', 'NO SUMMARY'))
                 print(event.get('start', 'NO START'))
+                start_s = RFC3339_to_seconds(event.get('start').get('dateTime'))
                 print(event.get('end', 'NO END'))
+                end_s = RFC3339_to_seconds(event.get('end').get('dateTime'))
+
+                total_hr = (end_s-start_s)/60/60
+
+                print('Total hours:',total_hr)
                 # Get the next request object by passing the previous request object to
                 # the list_next method.
                 request = service.events().list_next(request, response)
