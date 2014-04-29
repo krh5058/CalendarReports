@@ -104,8 +104,7 @@ def main(argv):
     service = discovery.build('calendar', 'v3', http=http)
 
     try:
-        request = service.events().list(
-##            calendarId='b4h134knp68e157iavnrrlfho4@group.calendar.google.com', ## MRI Slots
+        scanop = service.events().list(
             calendarId='7pvr3e5ebphbtih6l1n2044ko4@group.calendar.google.com', ## Scanner Operator Availability
             singleEvents=True,
             orderBy="startTime",
@@ -114,10 +113,19 @@ def main(argv):
             timeMin = "2014-04-21T00:00:00-00:00",
             timeMax = "2014-04-28T00:00:00-00:00"
             )
+        mrislots = service.events().list(
+            calendarId='b4h134knp68e157iavnrrlfho4@group.calendar.google.com', ## MRI Slots
+            singleEvents=True,
+            orderBy="startTime",
+            timeZone = "America/New_York",
+##            TODO: Perform weekly/daily split
+            timeMin = "2014-04-21T00:00:00-00:00",
+            timeMax = "2014-04-28T00:00:00-00:00"
+            )
         # Loop until all pages have been processed.
-        while request != None:
+        while scanop != None:
             # Get the next page.
-            response = request.execute()
+            response = scanop.execute()
             # Accessing the response like a dict object with an 'items' key
             # returns a list of item objects (events).
             for event in response.get('items', []):
