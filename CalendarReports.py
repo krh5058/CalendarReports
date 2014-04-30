@@ -1,13 +1,12 @@
 #-------------------------------------------------------------------------------
-# Name:        fledgling
-# Purpose:
+# Name:        CalendarReports
+# Purpose:     Retrieve data from SLEIC calendars for reporting
 #
-# Author:      krh5058
+# Author:      Ken Hwang
 #
 # Created:     22/04/2014
 # Copyright:   (c) krh5058 2014
-# Licence:     <your licence>
-#-------------------------------------------------------------------------------
+# Licence:     Derivative work of skeleton application for Calendar API (copyright below)
 
 # -*- coding: utf-8 -*-
 #
@@ -25,17 +24,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#-------------------------------------------------------------------------------
+
 """Command-line skeleton application for Calendar API.
 Usage:
-  $ python sample.py
+  $ python CalendarReports.py
 
 You can also get help on all the command-line flags the program understands
 by running:
 
-  $ python sample.py --help
+  $ python CalendarReports.py --help
 
 """
 
+# Skeleton imports
 import argparse
 import httplib2
 import os
@@ -48,7 +50,9 @@ from oauth2client import tools
 
 # Additional imports
 from datetime import timedelta, datetime
+from Event import EventClass
 import re
+import json
 
 # Parser for command-line arguments.
 parser = argparse.ArgumentParser(
@@ -62,6 +66,9 @@ parser = argparse.ArgumentParser(
 # <https://cloud.google.com/console#/project/561458633478/apiui>
 CLIENT_SECRETS = os.path.join(os.path.dirname(__file__), 'config/client_secrets.json')
 
+# CALENDARS is the name of the file containing data fields to construct a Google Calendar API service request
+CALENDARS = os.path.join(os.path.dirname(__file__), 'config/calendars.json')
+
 # Set up a Flow object to be used for authentication.
 # Add one or more of the following scopes. PLEASE ONLY ADD THE SCOPES YOU
 # NEED. For more information on using scopes please see
@@ -72,14 +79,6 @@ FLOW = client.flow_from_clientsecrets(CLIENT_SECRETS,
       'https://www.googleapis.com/auth/calendar.readonly',
     ],
     message=tools.message_if_missing(CLIENT_SECRETS))
-
-# Date string handling
-datestring_pattern = re.compile(r'(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})')
-
-def RFC3339_to_seconds(date_string):
-    datestrings = datestring_pattern.match(date_string)
-    date_num = datetime(int(datestrings.group('year')),int(datestrings.group('month')),int(datestrings.group('day')),int(datestrings.group('hour')),int(datestrings.group('minute')))
-    return date_num.timestamp()
 
 # Main
 def main(argv):
@@ -103,25 +102,38 @@ def main(argv):
     # Construct the service object for the interacting with the Calendar API.
     service = discovery.build('calendar', 'v3', http=http)
 
+    # Open calendars.json
     try:
+        calendar_json = open(CALENDARS)
+    except IOError as e:
+        print("I/O error({0}): {1}".format(e.errno, e.strerror))
+
+    try:
+        calendar_data = json.load(calendar_json)
+        scanop_data = calendar_data["calendars"]["scanop"]
         scanop = service.events().list(
-            calendarId='7pvr3e5ebphbtih6l1n2044ko4@group.calendar.google.com', ## Scanner Operator Availability
-            singleEvents=True,
-            orderBy="startTime",
-            timeZone = "America/New_York",
-##            TODO: Perform weekly/daily split
+            calendarId=scanop_data["calendarId"], ## Scanner Operator Availability
+            singleEvents=(scanop_data["singleEvents"]=="True"),
+            orderBy=scanop_data["orderBy"],
+            timeZone = scanop_data["timeZone"],
+    ##            TODO: Perform weekly/daily split
             timeMin = "2014-04-21T00:00:00-00:00",
             timeMax = "2014-04-28T00:00:00-00:00"
             )
-        mrislots = service.events().list(
-            calendarId='b4h134knp68e157iavnrrlfho4@group.calendar.google.com', ## MRI Slots
-            singleEvents=True,
-            orderBy="startTime",
-            timeZone = "America/New_York",
-##            TODO: Perform weekly/daily split
-            timeMin = "2014-04-21T00:00:00-00:00",
-            timeMax = "2014-04-28T00:00:00-00:00"
-            )
+    ##        mrislots = service.events().list(
+    ##            calendarId='b4h134knp68e157iavnrrlfho4@group.calendar.google.com', ## MRI Slots
+    ##            singleEvents=True,
+    ##            orderBy="startTime",
+    ##            timeZone = "America/New_York",
+    ####            TODO: Perform weekly/daily split
+    ##            timeMin = "2014-04-21T00:00:00-00:00",
+    ##            timeMax = "2014-04-28T00:00:00-00:00"
+    ##            )
+    finally:
+        calendar_json.close()
+
+    try:
+
         # Loop until all pages have been processed.
         while scanop != None:
             # Get the next page.
@@ -129,19 +141,12 @@ def main(argv):
             # Accessing the response like a dict object with an 'items' key
             # returns a list of item objects (events).
             for event in response.get('items', []):
-                # The event object is a dict object with a 'summary' key.
-                print(event.get('summary', 'NO SUMMARY'))
-                print(event.get('start', 'NO START'))
-                start_s = RFC3339_to_seconds(event.get('start').get('dateTime'))
-                print(event.get('end', 'NO END'))
-                end_s = RFC3339_to_seconds(event.get('end').get('dateTime'))
-
-                total_hr = (end_s-start_s)/60/60
-
-                print('Total hours:',total_hr)
+                # The event object is a dict object.
+                # Store event as EventClass
+                EventClass(event)
                 # Get the next request object by passing the previous request object to
                 # the list_next method.
-                request = service.events().list_next(request, response)
+                scanop = service.events().list_next(scanop, response)
 
         input("Press Enter to continue...")
     except client.AccessTokenRefreshError:

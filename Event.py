@@ -25,24 +25,20 @@ class EventClass:
     s_cmp = {'s','sec','secs','second','seconds'}
     m_cmp = {'m','min','mins','minute','minutes'}
     h_cmp = {'h','hr','hrs','hour','hours'}
-##    d_cmp = {'d','day','days'}
+    all_events = []
 
     # Class attributes, redefined at instatiation
-    id = None
-    summary = None
-    startstr = None
-    endstr = None
+    event = None
 
     # Class attributes, redefined in method calls
     start_s = None
     end_s = None
 
-    def __init__(self, id, summary, startstr, endstr):
-
-        self.id = id
-        self.summary = summary
-        self.startstr = startstr
-        self.endstr = endstr
+    def __init__(self, event):
+        self.event = event
+        self.start()
+        self.end()
+        EventClass.all_events.append(self)
 
     def timestamp(self, date_string):
         """Converts RFC3399 date string standards into a numeric value (seconds)"""
@@ -70,7 +66,7 @@ class EventClass:
         """ Timestamp conversion from event start date string"""
 
         if self.start_s is None:
-            self.start_s = self.timestamp(self.startstr)
+            self.start_s = self.timestamp(self.event.get('start').get('dateTime'))
 
         return self.time_format(self.start_s,formatting)
 
@@ -78,7 +74,11 @@ class EventClass:
         """ Timestamp conversion from event end date string"""
 
         if self.end_s is None:
-            self.end_s = self.timestamp(self.endstr)
+            self.end_s = self.timestamp(self.event.get('end').get('dateTime'))
 
         return self.time_format(self.end_s,formatting)
 
+##class DayClass(EventClass):
+##    def __init__(self, *arg):
+##
+##        for event in arg:
