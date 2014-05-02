@@ -21,7 +21,8 @@ class EventClass:
 
     # Class attributes
     # Date string pattern (RFC3399)
-    datestring_pattern = re.compile(r'(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})')
+    dateTime_pattern = re.compile(r'(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})')
+    date_pattern = re.compile(r'(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})')
     s_cmp = {'s','sec','secs','second','seconds'}
     m_cmp = {'m','min','mins','minute','minutes'}
     h_cmp = {'h','hr','hrs','hour','hours'}
@@ -29,6 +30,7 @@ class EventClass:
 
     # Class attributes, redefined at instatiation
     event = None
+    groupable = True
 
     # Class attributes, redefined in method calls
     start_s = None
@@ -40,11 +42,26 @@ class EventClass:
         self.end()
         EventClass.all_events.append(self)
 
-    def timestamp(self, date_string):
-        """Converts RFC3399 date string standards into a numeric value (seconds)"""
+    def timestamp(self, date_dict):
+        """
+        Converts RFC3399 date string standards into a numeric value (seconds)
+        Input is dictionary key/value pair.
+        Check for either "dateTime", or "date" key (all-day)
+        """
 
-        datestrings = EventClass.datestring_pattern.match(date_string)
-        date_num = datetime(int(datestrings.group('year')),int(datestrings.group('month')),int(datestrings.group('day')),int(datestrings.group('hour')),int(datestrings.group('minute')))
+        if 'dateTime' in date_dict:
+            date_string = date_dict.get('dateTime')
+            datestrings = EventClass.dateTime_pattern.match(date_string)
+            date_num = datetime(int(datestrings.group('year')),int(datestrings.group('month')),int(datestrings.group('day')),int(datestrings.group('hour')),int(datestrings.group('minute')))
+        elif 'date' in date_dict: ## All day event
+            date_string = date_dict.get('date')
+            datestrings = EventClass.date_pattern.match(date_string)
+            date_num = datetime(int(datestrings.group('year')),int(datestrings.group('month')),int(datestrings.group('day')))
+            self.groupable = False ## Can't be grouped
+        else:
+            raise FormattingError(
+                'EventClass (timestamp): Unrecognized key in event dictionary, "' + list(date_dict.keys())[0] + '".')
+
         return date_num.timestamp()
 
     def time_format(self,time_s,formatting):
@@ -66,7 +83,7 @@ class EventClass:
         """ Timestamp conversion from event start date string"""
 
         if self.start_s is None:
-            self.start_s = self.timestamp(self.event.get('start').get('dateTime'))
+            self.start_s = self.timestamp(self.event.get('start'))
 
         return self.time_format(self.start_s,formatting)
 
@@ -74,11 +91,16 @@ class EventClass:
         """ Timestamp conversion from event end date string"""
 
         if self.end_s is None:
-            self.end_s = self.timestamp(self.event.get('end').get('dateTime'))
+            self.end_s = self.timestamp(self.event.get('end'))
 
         return self.time_format(self.end_s,formatting)
 
-##class DayClass(EventClass):
-##    def __init__(self, *arg):
+##class GroupedEventClass(EventClass):
+##    def __init__(self):
+##        for event in self.all_events:
+##            print(event.start_s)
+##            print(event.end_s)
 ##
-##        for event in arg:
+##    def get_date(self, date_string):
+##        datestrings = EventClass.datestring_pattern.match(date_string)
+##        date_num = datetime(int(datestrings.group('year')),int(datestrings.group('month')),int(datestrings.group('day')),int(datestrings.group('hour')),int(datestrings.group('minute')))

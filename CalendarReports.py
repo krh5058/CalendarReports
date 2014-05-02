@@ -50,7 +50,7 @@ from oauth2client import tools
 
 # Additional imports
 from datetime import timedelta, datetime
-from Event import EventClass
+import Event
 import re
 import json
 
@@ -68,6 +68,11 @@ CLIENT_SECRETS = os.path.join(os.path.dirname(__file__), 'config/client_secrets.
 
 # CALENDARS is the name of the file containing data fields to construct a Google Calendar API service request
 CALENDARS = os.path.join(os.path.dirname(__file__), 'config/calendars.json')
+
+# History directory for cache read and write
+use_cache = True
+write_cache = False
+HISTORY = os.path.join(os.path.dirname(__file__), 'history/')
 
 # Set up a Flow object to be used for authentication.
 # Add one or more of the following scopes. PLEASE ONLY ADD THE SCOPES YOU
@@ -110,15 +115,21 @@ def main(argv):
 
     try:
         calendar_data = json.load(calendar_json)
+
+        if use_cache:
+            cacheMax = "2014-04-26T16:00:01-04:00"
+        else:
+            # Untested
+            cacheMax = None
+
         scanop_data = calendar_data["calendars"]["scanop"]
         scanop = service.events().list(
             calendarId=scanop_data["calendarId"], ## Scanner Operator Availability
             singleEvents=(scanop_data["singleEvents"]=="True"),
             orderBy=scanop_data["orderBy"],
             timeZone = scanop_data["timeZone"],
-    ##            TODO: Perform weekly/daily split
-            timeMin = "2014-04-21T00:00:00-00:00",
-            timeMax = "2014-04-28T00:00:00-00:00"
+            timeMin = cacheMax
+##            timeMax = "2014-04-28T00:00:00-00:00"
             )
     ##        mrislots = service.events().list(
     ##            calendarId='b4h134knp68e157iavnrrlfho4@group.calendar.google.com', ## MRI Slots
@@ -132,8 +143,22 @@ def main(argv):
     finally:
         calendar_json.close()
 
-    try:
+    if use_cache:
+        print("Start Cache...")
+        try:
+            cache = os.listdir(HISTORY)
+            for filename in cache:
+                print(datetime.fromtimestamp(float(filename[:-5])))
+                event_json = open(HISTORY + filename)
+                Event.EventClass(json.load(event_json))
+                event_json.close()
+        except IOError as e:
+            print("I/O error({0}): {1}".format(e.errno, e.strerror))
+        finally:
+            print("End Cache.")
 
+    try:
+        print("Start Calendar HTTP Requests...")
         # Loop until all pages have been processed.
         while scanop != None:
             # Get the next page.
@@ -143,7 +168,14 @@ def main(argv):
             for event in response.get('items', []):
                 # The event object is a dict object.
                 # Store event as EventClass
-                EventClass(event)
+                Event.EventClass(event)
+                print(datetime.fromtimestamp(Event.EventClass.all_events[-1].start_s))
+
+                if write_cache:
+                    outfile = open(HISTORY + str(Event.EventClass.all_events[-1].start_s) + '.json','w')
+                    json.dump(event,outfile)
+                    outfile.close()
+
                 # Get the next request object by passing the previous request object to
                 # the list_next method.
                 scanop = service.events().list_next(scanop, response)
@@ -152,6 +184,8 @@ def main(argv):
     except client.AccessTokenRefreshError:
         print ("The credentials have been revoked or expired, please re-run"
           "the application to re-authorize")
+    finally:
+        print("End Calendar HTTP Requests.")
 
 if __name__ == '__main__':
   main(sys.argv)
