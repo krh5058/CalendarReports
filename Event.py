@@ -20,13 +20,16 @@ class EventClass:
     """Event class for storing and formatting Google Calendar API event data"""
 
     # Class attributes
-    # Date string pattern (RFC3399)
+    # Date string patterns (RFC3399)
     dateTime_pattern = re.compile(r'(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})')
     date_pattern = re.compile(r'(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})')
+    strfmt = "%Y-%m-%dT%H:%M:%S-04:00" ## Eastern, observing daylight savings
     s_cmp = {'s','sec','secs','second','seconds'}
     m_cmp = {'m','min','mins','minute','minutes'}
     h_cmp = {'h','hr','hrs','hour','hours'}
-    all_events = []
+    d_cmp = {'d','day','date','datetime'}
+    i_cmp = {'i','iso'}
+##    all_events = []
 
     # Class attributes, redefined at instatiation
     event = None
@@ -35,18 +38,21 @@ class EventClass:
     # Class attributes, redefined in method calls
     start_s = None
     end_s = None
+    dur_s = None
 
     def __init__(self, event):
         self.event = event
         self.start()
         self.end()
-        EventClass.all_events.append(self)
+        self.duration()
+##        EventClass.all_events.append(self)
 
     def timestamp(self, date_dict):
         """
         Converts RFC3399 date string standards into a numeric value (seconds)
         Input is dictionary key/value pair.
         Check for either "dateTime", or "date" key (all-day)
+        Mark ungroupable if all-day
         """
 
         if 'dateTime' in date_dict:
@@ -64,8 +70,28 @@ class EventClass:
 
         return date_num.timestamp()
 
-    def time_format(self,time_s,formatting):
-        """Output a timestamp value according to a formatting argument (seconds, minutes, hours)"""
+    def datetime_format(self, time_s):
+        """
+        Output a datetime() data-type
+        """
+
+        time_str = datetime.fromtimestamp(time_s).strftime(EventClass.strfmt)
+        datestrings = EventClass.dateTime_pattern.match(time_str)
+        date_num = [int(x) for x in datestrings.groups()]
+        return datetime(date_num[0],date_num[1],date_num[2],date_num[3],date_num[4],date_num[5])
+
+    def iso_format(self, time_s):
+        """
+        Output a datetime().isocalendar() data-type
+        """
+
+        return self.datetime_format(time_s).isocalendar()
+
+    def timestamp_format(self,time_s,formatting):
+        """
+        Output a timestamp value according to a formatting argument
+        Output can be seconds, minutes, or hours
+        """
 
         if formatting.lower() in EventClass.s_cmp:
             format_out = time_s
@@ -73,9 +99,13 @@ class EventClass:
             format_out = time_s/60
         elif formatting.lower() in EventClass.h_cmp:
             format_out = time_s/60/60
+        elif formatting.lower() in EventClass.d_cmp:
+            format_out = self.datetime_format(time_s)
+        elif formatting.lower() in EventClass.i_cmp:
+            format_out = self.iso_format(time_s)
         else:
             raise FormattingError(
-                'EventClass (time_format): Unrecognized formatting argument, "' + formatting + '".')
+                'EventClass (timestamp_format): Unrecognized formatting argument, "' + formatting + '".')
 
         return format_out
 
@@ -85,7 +115,7 @@ class EventClass:
         if self.start_s is None:
             self.start_s = self.timestamp(self.event.get('start'))
 
-        return self.time_format(self.start_s,formatting)
+        return self.timestamp_format(self.start_s,formatting)
 
     def end(self,formatting='s'):
         """ Timestamp conversion from event end date string"""
@@ -93,14 +123,29 @@ class EventClass:
         if self.end_s is None:
             self.end_s = self.timestamp(self.event.get('end'))
 
-        return self.time_format(self.end_s,formatting)
+        return self.timestamp_format(self.end_s,formatting)
+
+    def duration(self,formatting='s'):
+        """ Duration calculation of event"""
+
+        if self.dur_s is None:
+            self.dur_s = self.end_s - self.start_s
+
+        if formatting.lower() in EventClass.s_cmp:
+            format_out = self.timestamp_format(self.dur_s,formatting)
+        elif formatting.lower() in EventClass.m_cmp:
+            format_out = self.timestamp_format(self.dur_s,formatting)
+        elif formatting.lower() in EventClass.h_cmp:
+            format_out = self.timestamp_format(self.dur_s,formatting)
+        else:
+            raise FormattingError(
+                'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')
+
+        return format_out
 
 ##class GroupedEventClass(EventClass):
+##
 ##    def __init__(self):
 ##        for event in self.all_events:
 ##            print(event.start_s)
 ##            print(event.end_s)
-##
-##    def get_date(self, date_string):
-##        datestrings = EventClass.datestring_pattern.match(date_string)
-##        date_num = datetime(int(datestrings.group('year')),int(datestrings.group('month')),int(datestrings.group('day')),int(datestrings.group('hour')),int(datestrings.group('minute')))

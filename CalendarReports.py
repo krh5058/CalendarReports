@@ -113,53 +113,77 @@ def main(argv):
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
+    # Initialize service, data lists
     try:
         calendar_data = json.load(calendar_json)
 
+        # timeMin
         if use_cache:
-            cacheMax = "2014-04-26T16:00:01-04:00"
+            cacheMax = datetime(2014,4,26,16,0,1)
+            timeMinStr = cacheMax.strftime(Event.EventClass.strfmt)
         else:
             # Untested
-            cacheMax = None
+            timeMinStr = None
+
+        # timeMax, specify weeks in the future
+        weeksFuture = 2
+        timeMaxStr = (datetime.today() + timedelta(weeks=weeksFuture)).strftime(Event.EventClass.strfmt)
 
         scanop_data = calendar_data["calendars"]["scanop"]
         scanop = service.events().list(
-            calendarId=scanop_data["calendarId"], ## Scanner Operator Availability
+            calendarId=scanop_data["calendarId"],
             singleEvents=(scanop_data["singleEvents"]=="True"),
             orderBy=scanop_data["orderBy"],
             timeZone = scanop_data["timeZone"],
-            timeMin = cacheMax
-##            timeMax = "2014-04-28T00:00:00-00:00"
+            timeMin = timeMinStr,
+            timeMax = timeMaxStr
             )
-    ##        mrislots = service.events().list(
-    ##            calendarId='b4h134knp68e157iavnrrlfho4@group.calendar.google.com', ## MRI Slots
-    ##            singleEvents=True,
-    ##            orderBy="startTime",
-    ##            timeZone = "America/New_York",
-    ####            TODO: Perform weekly/daily split
-    ##            timeMin = "2014-04-21T00:00:00-00:00",
-    ##            timeMax = "2014-04-28T00:00:00-00:00"
-    ##            )
+        scanop_events = []
+
+        mrislots_data = calendar_data["calendars"]["mrislots"]
+        mrislots = service.events().list(
+            calendarId=mrislots_data["calendarId"],
+            singleEvents=(mrislots_data["singleEvents"]=="True"),
+            orderBy=mrislots_data["orderBy"],
+            timeZone = mrislots_data["timeZone"],
+            timeMin = timeMinStr,
+            timeMax = timeMaxStr
+            )
+        mrislots_events = []
     finally:
         calendar_json.close()
 
+    # Old cache of events
     if use_cache:
         print("Start Cache...")
         try:
-            cache = os.listdir(HISTORY)
+            print("Start Scanner Operator Cache...")
+            cache = os.listdir(HISTORY + "scanop/")
             for filename in cache:
+                event_json = open(HISTORY + "scanop/" + filename)
+                scanop_events.append(Event.EventClass(json.load(event_json)))
                 print(datetime.fromtimestamp(float(filename[:-5])))
-                event_json = open(HISTORY + filename)
-                Event.EventClass(json.load(event_json))
+                event_json.close()
+
+            print("Start MRI Slots Cache...")
+            cache = os.listdir(HISTORY + "mrislots/")
+            for filename in cache:
+                event_json = open(HISTORY + "mrislots/" + filename)
+                mrislots_events.append(Event.EventClass(json.load(event_json)))
+                print(datetime.fromtimestamp(float(filename[:-5])))
                 event_json.close()
         except IOError as e:
             print("I/O error({0}): {1}".format(e.errno, e.strerror))
         finally:
             print("End Cache.")
 
+    # HTTP Requests
     try:
         print("Start Calendar HTTP Requests...")
+
+        # Scanner Operator Availability
         # Loop until all pages have been processed.
+        print("Start Scanner Operator Requests...")
         while scanop != None:
             # Get the next page.
             response = scanop.execute()
@@ -168,17 +192,40 @@ def main(argv):
             for event in response.get('items', []):
                 # The event object is a dict object.
                 # Store event as EventClass
-                Event.EventClass(event)
-                print(datetime.fromtimestamp(Event.EventClass.all_events[-1].start_s))
+                scanop_events.append(Event.EventClass(event))
+                print(datetime.fromtimestamp(scanop_events[-1].start_s))
 
                 if write_cache:
-                    outfile = open(HISTORY + str(Event.EventClass.all_events[-1].start_s) + '.json','w')
+                    outfile = open(HISTORY + "scanop/" + str(scanop_events[-1].start_s) + '.json','w')
                     json.dump(event,outfile)
                     outfile.close()
 
                 # Get the next request object by passing the previous request object to
                 # the list_next method.
                 scanop = service.events().list_next(scanop, response)
+
+        # MRI Slots
+        # Loop until all pages have been processed.
+        print("Start MRI Slots Requests...")
+        while mrislots != None:
+            # Get the next page.
+            response = mrislots.execute()
+            # Accessing the response like a dict object with an 'items' key
+            # returns a list of item objects (events).
+            for event in response.get('items', []):
+                # The event object is a dict object.
+                # Store event as EventClass
+                mrislots_events.append(Event.EventClass(event))
+                print(datetime.fromtimestamp(mrislots_events[-1].start_s))
+
+                if write_cache:
+                    outfile = open(HISTORY + "mrislots/" + str(mrislots_events[-1].start_s) + '.json','w')
+                    json.dump(event,outfile)
+                    outfile.close()
+
+                # Get the next request object by passing the previous request object to
+                # the list_next method.
+                mrislots = service.events().list_next(mrislots, response)
 
         input("Press Enter to continue...")
     except client.AccessTokenRefreshError:
