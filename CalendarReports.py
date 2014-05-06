@@ -155,9 +155,9 @@ def main(argv):
 
     # Old cache of events
     if use_cache:
-        print("Start Cache...")
+        print("--------------Start Cache...")
         try:
-            print("Start Scanner Operator Cache...")
+            print("--------------Start Scanner Operator Cache...")
             cache = os.listdir(HISTORY + "scanop/")
             for filename in cache:
                 event_json = open(HISTORY + "scanop/" + filename)
@@ -165,7 +165,7 @@ def main(argv):
                 print(datetime.fromtimestamp(float(filename[:-5])))
                 event_json.close()
 
-            print("Start MRI Slots Cache...")
+            print("--------------Start MRI Slots Cache...")
             cache = os.listdir(HISTORY + "mrislots/")
             for filename in cache:
                 event_json = open(HISTORY + "mrislots/" + filename)
@@ -175,15 +175,15 @@ def main(argv):
         except IOError as e:
             print("I/O error({0}): {1}".format(e.errno, e.strerror))
         finally:
-            print("End Cache.")
+            print("--------------End Cache.")
 
     # HTTP Requests
     try:
-        print("Start Calendar HTTP Requests...")
+        print("--------------Start Calendar HTTP Requests...")
 
         # Scanner Operator Availability
         # Loop until all pages have been processed.
-        print("Start Scanner Operator Requests...")
+        print("--------------Start Scanner Operator Requests...")
         while scanop != None:
             # Get the next page.
             response = scanop.execute()
@@ -206,7 +206,7 @@ def main(argv):
 
         # MRI Slots
         # Loop until all pages have been processed.
-        print("Start MRI Slots Requests...")
+        print("--------------Start MRI Slots Requests...")
         while mrislots != None:
             # Get the next page.
             response = mrislots.execute()
@@ -232,7 +232,7 @@ def main(argv):
         print ("The credentials have been revoked or expired, please re-run"
           "the application to re-authorize")
     finally:
-        print("End Calendar HTTP Requests.")
+        print("--------------End Calendar HTTP Requests.")
 
 if __name__ == '__main__':
   main(sys.argv)
