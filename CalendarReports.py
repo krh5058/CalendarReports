@@ -138,7 +138,7 @@ def main(argv):
             timeMin = timeMinStr,
             timeMax = timeMaxStr
             )
-        scanop_events = []
+        scanop_events = {}
 
         mrislots_data = calendar_data["calendars"]["mrislots"]
         mrislots = service.events().list(
@@ -149,7 +149,7 @@ def main(argv):
             timeMin = timeMinStr,
             timeMax = timeMaxStr
             )
-        mrislots_events = []
+        mrislots_events = {}
     finally:
         calendar_json.close()
 
@@ -161,16 +161,20 @@ def main(argv):
             cache = os.listdir(HISTORY + "scanop/")
             for filename in cache:
                 event_json = open(HISTORY + "scanop/" + filename)
-                scanop_events.append(Event.EventClass(json.load(event_json)))
-                print(datetime.fromtimestamp(float(filename[:-5])))
+                time_s = float(filename[:-5]) ## No file extension
+                scanop_events[time_s] = Event.EventClass(json.load(event_json))
+##                scanop_events.append(Event.EventClass(json.load(event_json)))
+                print(datetime.fromtimestamp(time_s))
                 event_json.close()
 
             print("--------------Start MRI Slots Cache...")
             cache = os.listdir(HISTORY + "mrislots/")
             for filename in cache:
                 event_json = open(HISTORY + "mrislots/" + filename)
-                mrislots_events.append(Event.EventClass(json.load(event_json)))
-                print(datetime.fromtimestamp(float(filename[:-5])))
+                time_s = float(filename[:-5]) ## No file extension
+                mrislots_events[time_s] = Event.EventClass(json.load(event_json))
+##                mrislots_events.append(Event.EventClass(json.load(event_json)))
+                print(datetime.fromtimestamp(time_s))
                 event_json.close()
         except IOError as e:
             print("I/O error({0}): {1}".format(e.errno, e.strerror))
@@ -192,11 +196,14 @@ def main(argv):
             for event in response.get('items', []):
                 # The event object is a dict object.
                 # Store event as EventClass
-                scanop_events.append(Event.EventClass(event))
-                print(datetime.fromtimestamp(scanop_events[-1].start_s))
+                obj = Event.EventClass(event)
+                scanop_events[obj.start_s] = obj
+##                scanop_events.append(Event.EventClass(event))
+                print(datetime.fromtimestamp(obj.start_s))
 
                 if write_cache:
-                    outfile = open(HISTORY + "scanop/" + str(scanop_events[-1].start_s) + '.json','w')
+                    outfile = open(HISTORY + "scanop/" + str(obj.start_s) + '.json','w')
+##                    outfile = open(HISTORY + "scanop/" + str(scanop_events[-1].start_s) + '.json','w')
                     json.dump(event,outfile)
                     outfile.close()
 
@@ -215,11 +222,14 @@ def main(argv):
             for event in response.get('items', []):
                 # The event object is a dict object.
                 # Store event as EventClass
-                mrislots_events.append(Event.EventClass(event))
-                print(datetime.fromtimestamp(mrislots_events[-1].start_s))
+                obj = Event.EventClass(event)
+                mrislots_events[obj.start_s] = obj
+##                mrislots_events.append(Event.EventClass(event))
+                print(datetime.fromtimestamp(obj.start_s))
 
                 if write_cache:
-                    outfile = open(HISTORY + "mrislots/" + str(mrislots_events[-1].start_s) + '.json','w')
+                    outfile = open(HISTORY + "mrislots/" + str(obj.start_s) + '.json','w')
+##                    outfile = open(HISTORY + "mrislots/" + str(mrislots_events[-1].start_s) + '.json','w')
                     json.dump(event,outfile)
                     outfile.close()
 
