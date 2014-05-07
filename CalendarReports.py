@@ -162,9 +162,10 @@ def main(argv):
             for filename in cache:
                 event_json = open(HISTORY + "scanop/" + filename)
                 time_s = float(filename[:-5]) ## No file extension
-                scanop_events[time_s] = Event.EventClass(json.load(event_json))
-##                scanop_events.append(Event.EventClass(json.load(event_json)))
-                print(datetime.fromtimestamp(time_s))
+                json_data = json.load(event_json)
+                if Event.EventClass.validate(json_data):
+                    scanop_events[time_s] = Event.EventClass(json_data)
+                    print(datetime.fromtimestamp(time_s))
                 event_json.close()
 
             print("--------------Start MRI Slots Cache...")
@@ -172,9 +173,10 @@ def main(argv):
             for filename in cache:
                 event_json = open(HISTORY + "mrislots/" + filename)
                 time_s = float(filename[:-5]) ## No file extension
-                mrislots_events[time_s] = Event.EventClass(json.load(event_json))
-##                mrislots_events.append(Event.EventClass(json.load(event_json)))
-                print(datetime.fromtimestamp(time_s))
+                json_data = json.load(event_json)
+                if Event.EventClass.validate(json_data):
+                    mrislots_events[time_s] = Event.EventClass(json_data)
+                    print(datetime.fromtimestamp(time_s))
                 event_json.close()
         except IOError as e:
             print("I/O error({0}): {1}".format(e.errno, e.strerror))
@@ -196,16 +198,17 @@ def main(argv):
             for event in response.get('items', []):
                 # The event object is a dict object.
                 # Store event as EventClass
-                obj = Event.EventClass(event)
-                scanop_events[obj.start_s] = obj
-##                scanop_events.append(Event.EventClass(event))
-                print(datetime.fromtimestamp(obj.start_s))
+                if Event.EventClass.validate(event):
+                    obj = Event.EventClass(event)
+                    scanop_events[obj.get_start()] = obj
+    ##                scanop_events.append(Event.EventClass(event))
+                    print(datetime.fromtimestamp(obj.get_start()))
 
-                if write_cache:
-                    outfile = open(HISTORY + "scanop/" + str(obj.start_s) + '.json','w')
-##                    outfile = open(HISTORY + "scanop/" + str(scanop_events[-1].start_s) + '.json','w')
-                    json.dump(event,outfile)
-                    outfile.close()
+                    if write_cache:
+                        outfile = open(HISTORY + "scanop/" + str(obj.get_start()) + '.json','w')
+    ##                    outfile = open(HISTORY + "scanop/" + str(scanop_events[-1].start_s) + '.json','w')
+                        json.dump(event,outfile)
+                        outfile.close()
 
                 # Get the next request object by passing the previous request object to
                 # the list_next method.
@@ -222,16 +225,17 @@ def main(argv):
             for event in response.get('items', []):
                 # The event object is a dict object.
                 # Store event as EventClass
-                obj = Event.EventClass(event)
-                mrislots_events[obj.start_s] = obj
-##                mrislots_events.append(Event.EventClass(event))
-                print(datetime.fromtimestamp(obj.start_s))
+                if Event.EventClass.validate(event):
+                    obj = Event.EventClass(event)
+                    mrislots_events[obj.get_start()] = obj
+    ##                mrislots_events.append(Event.EventClass(event))
+                    print(datetime.fromtimestamp(obj.get_start()))
 
-                if write_cache:
-                    outfile = open(HISTORY + "mrislots/" + str(obj.start_s) + '.json','w')
-##                    outfile = open(HISTORY + "mrislots/" + str(mrislots_events[-1].start_s) + '.json','w')
-                    json.dump(event,outfile)
-                    outfile.close()
+                    if write_cache:
+                        outfile = open(HISTORY + "mrislots/" + str(obj.get_start()) + '.json','w')
+    ##                    outfile = open(HISTORY + "mrislots/" + str(mrislots_events[-1].start_s) + '.json','w')
+                        json.dump(event,outfile)
+                        outfile.close()
 
                 # Get the next request object by passing the previous request object to
                 # the list_next method.
