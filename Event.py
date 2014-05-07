@@ -33,7 +33,6 @@ class EventClass:
 
     # Class attributes, redefined at instatiation
     event = None
-    groupable = True
 
     # Class attributes, redefined in method calls
     start_s = None
@@ -42,10 +41,6 @@ class EventClass:
 
     def __init__(self, event):
         self.event = event
-        self.start()
-        self.end()
-        self.duration()
-##        EventClass.all_events.append(self)
 
     def timestamp(self, date_dict):
         """
