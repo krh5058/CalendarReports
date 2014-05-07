@@ -40,7 +40,16 @@ class EventClass:
     dur_s = None
 
     def __init__(self, event):
-        self.event = event
+        if self.validate(event):
+            self.event = event
+            return True
+        else:
+            return False
+
+    def validate(self, event):
+        isValid = False
+        for k in event.keys():
+            if k
 
     def timestamp(self, date_dict):
         """
