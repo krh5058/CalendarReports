@@ -28,7 +28,7 @@ class EventClass:
     m_cmp = ('m','min','mins','minute','minutes')
     h_cmp = ('h','hr','hrs','hour','hours')
     dt_cmp = ('d','day','date','datetime')
-    i_cmp = ('i','iso')
+    tt_cmp = ('t','tt','tuple','timetuple')
 
     # Class attributes, redefined at instatiation
     event = None
@@ -80,12 +80,12 @@ class EventClass:
         date_num = [int(x) for x in datestrings.groups()]
         return datetime(date_num[0],date_num[1],date_num[2],date_num[3],date_num[4],date_num[5])
 
-    def timestamp_to_isocalendar(time_s):
+    def timestamp_to_timetuple(time_s):
         """
         Output a datetime().isocalendar() data-type
         """
 
-        return EventClass.timestamp_to_datetime(time_s).isocalendar()
+        return EventClass.timestamp_to_datetime(time_s).timetuple()
 
     def timestamp_conversion(time_s,formatting):
 
@@ -109,8 +109,8 @@ class EventClass:
 
         if formatting.lower() in EventClass.dt_cmp:
             format_out = EventClass.timestamp_to_datetime(time_s)
-        elif formatting.lower() in EventClass.i_cmp:
-            format_out = EventClass.timestamp_to_isocalendar(time_s)
+        elif formatting.lower() in EventClass.tt_cmp:
+            format_out = EventClass.timestamp_to_timetuple(time_s)
         else:
             raise FormattingError(
                 'EventClass (timestamp_format): Unrecognized formatting argument, "' + formatting + '".')
@@ -124,7 +124,7 @@ class EventClass:
 
         if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp:
             format_out = EventClass.timestamp_conversion(time_s,formatting)
-        elif formatting.lower() in EventClass.dt_cmp + EventClass.i_cmp:
+        elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp:
             format_out = EventClass.timestamp_format(time_s,formatting)
         else:
             raise FormattingError(
@@ -139,7 +139,7 @@ class EventClass:
 
         if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp:
             format_out = EventClass.timestamp_conversion(time_s,formatting)
-        elif formatting.lower() in EventClass.dt_cmp + EventClass.i_cmp:
+        elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp:
             format_out = EventClass.timestamp_format(time_s,formatting)
         else:
             raise FormattingError(
@@ -150,16 +150,19 @@ class EventClass:
     def duration(self,formatting='s'):
         """ Duration calculation of event"""
 
-        dur_test = (self.get_end() - self.get_start())
+        if isinstance(self,EventClass):
+            dur_test = (self.get_end() - self.get_start())
 
-        ## Conversion Only
-        if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp:
-            format_out = EventClass.timestamp_conversion(dur_test,formatting)
+            ## Conversion Only
+            if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp:
+                format_out = EventClass.timestamp_conversion(dur_test,formatting)
+            else:
+                raise FormattingError(
+                    'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')
+
+            return format_out
         else:
-            raise FormattingError(
-                'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')
-
-        return format_out
+            print("EventClass (duration): Placeholder")
 
 ##class GroupedEventClass(EventClass):
 ##
