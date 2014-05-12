@@ -74,6 +74,9 @@ use_cache = True
 write_cache = False
 HISTORY = os.path.join(os.path.dirname(__file__), 'history/')
 
+# Development output
+DEV = os.path.join(os.path.dirname(__file__), 'dev/')
+
 # Set up a Flow object to be used for authentication.
 # Add one or more of the following scopes. PLEASE ONLY ADD THE SCOPES YOU
 # NEED. For more information on using scopes please see
@@ -240,6 +243,27 @@ def main(argv):
                 # Get the next request object by passing the previous request object to
                 # the list_next method.
                 mrislots = service.events().list_next(mrislots, response)
+
+        head = ['pi', 'project-id', 'full-event','date', 'start', 'end', 'duration', 'hrs-use-category','subject-id']
+##
+##        fwrite = csv.writer(csvfile, delimiter=',')
+##        write_csv(fwrite,head)
+        lastweek = (datetime.today() - timedelta(weeks=1)).timestamp()
+        tomorrow = (datetime.today() + timedelta(days=1)).timestamp()
+        for event in mrislots_events.keys():
+            if (event > lastweek) and (event < tomorrow):
+                print(mrislots_events[event].event)
+                summary = mrislots_events[event].event.get('summary')
+                print('Full Event:', summary)
+                pi = re.search('\w{3}\d{1,4}',summary)
+                if pi:
+                    print('PI:',pi.group(0))
+                proj = re.search('\w{1,4}',summary)
+                if proj:
+                    print('Project ID:',proj.group(0))
+                print(mrislots_events[event].event.get('start').get('dateTime'))
+                print(mrislots_events[event].event.get('end').get('dateTime'))
+                print(mrislots_events[event].duration('m'))
 
         input("Press Enter to continue...")
     except client.AccessTokenRefreshError:
