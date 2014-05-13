@@ -252,15 +252,25 @@ def main(argv):
         tomorrow = (datetime.today() + timedelta(days=1)).timestamp()
         for event in mrislots_events.keys():
             if (event > lastweek) and (event < tomorrow):
-                print(mrislots_events[event].event)
+##                print(mrislots_events[event].event)
                 summary = mrislots_events[event].event.get('summary')
                 print('Full Event:', summary)
                 pi = re.search('\w{3}\d{1,4}',summary)
                 if pi:
                     print('PI:',pi.group(0))
-                proj = re.search('\w{1,4}',summary)
-                if proj:
-                    print('Project ID:',proj.group(0))
+                    sub1 = re.sub(pi.group(0),'',summary,1)
+                    sub2 = re.sub('^[_\s]*(?<=\w)','',sub1)
+                    sumsplit = re.split('[_\s]',sub2)
+##                    proj = re.search('([^_\s]{3,4})(?=\W)?',sub1)
+##                    if len(sumsplit[0]):
+##                        print('Project ID:','None')
+##
+##                    elif:
+##                        print('Project ID:',proj.group(0))
+##                        sub2 = re.sub(proj.group(0),'',sub1,1)
+##                        sub3 = re.sub('[_\s]','',sub2)
+##                        if sub3:
+##                            print('Subject:',sub3)
                 print(mrislots_events[event].event.get('start').get('dateTime'))
                 print(mrislots_events[event].event.get('end').get('dateTime'))
                 print(mrislots_events[event].duration('m'))
