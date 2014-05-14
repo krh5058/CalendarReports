@@ -69,11 +69,13 @@ CLIENT_SECRETS = os.path.join(os.path.dirname(__file__), 'config/client_secrets.
 # CALENDARS is the name of the file containing data fields to construct a Google Calendar API service request
 CALENDARS = os.path.join(os.path.dirname(__file__), 'config/calendars.json')
 
+# SLEIC Event, PI, Project, and Subject resource
+SLEIC = os.path.join(os.path.dirname(__file__), 'config/sleic_dictionary.json')
+
 # History directory for cache read and write
 use_cache = True
 write_cache = False
 HISTORY = os.path.join(os.path.dirname(__file__), 'history/')
-
 # Development output
 DEV = os.path.join(os.path.dirname(__file__), 'dev/')
 
@@ -87,6 +89,27 @@ FLOW = client.flow_from_clientsecrets(CLIENT_SECRETS,
       'https://www.googleapis.com/auth/calendar.readonly',
     ],
     message=tools.message_if_missing(CLIENT_SECRETS))
+
+# Search SLEIC json
+def search_sleic(json_data,pi=None,project=None):
+    out = []
+    for pi_line in json_data:
+        if pi is not None:
+            print('looking for',pi)
+            if pi_line["pi"]==pi:
+                print('found',pi_line["pi"])
+                for project_line in pi_line["project"]:
+                    if project is not None:
+                        print('looking for',project)
+                        if project_line["id"]==project:
+                            print('found',project_line["id"])
+                            out = project_line["subject"]
+                    else:
+                        out.append(project_line["id"])
+        else:
+            out.append(pi_line["pi"])
+
+    return out
 
 # Main
 def main(argv):
@@ -244,36 +267,57 @@ def main(argv):
                 # the list_next method.
                 mrislots = service.events().list_next(mrislots, response)
 
-        head = ['pi', 'project-id', 'full-event','date', 'start', 'end', 'duration', 'hrs-use-category','subject-id']
-##
-##        fwrite = csv.writer(csvfile, delimiter=',')
-##        write_csv(fwrite,head)
-        lastweek = (datetime.today() - timedelta(weeks=1)).timestamp()
-        tomorrow = (datetime.today() + timedelta(days=1)).timestamp()
-        for event in mrislots_events.keys():
-            if (event > lastweek) and (event < tomorrow):
-##                print(mrislots_events[event].event)
-                summary = mrislots_events[event].event.get('summary')
-                print('Full Event:', summary)
-                pi = re.search('\w{3}\d{1,4}',summary)
-                if pi:
-                    print('PI:',pi.group(0))
-                    sub1 = re.sub(pi.group(0),'',summary,1)
-                    sub2 = re.sub('^[_\s]*(?<=\w)','',sub1)
-                    sumsplit = re.split('[_\s]',sub2)
-##                    proj = re.search('([^_\s]{3,4})(?=\W)?',sub1)
-##                    if len(sumsplit[0]):
-##                        print('Project ID:','None')
-##
-##                    elif:
-##                        print('Project ID:',proj.group(0))
-##                        sub2 = re.sub(proj.group(0),'',sub1,1)
-##                        sub3 = re.sub('[_\s]','',sub2)
-##                        if sub3:
-##                            print('Subject:',sub3)
-                print(mrislots_events[event].event.get('start').get('dateTime'))
-                print(mrislots_events[event].event.get('end').get('dateTime'))
-                print(mrislots_events[event].duration('m'))
+        # Open SLEIC dictionary resource
+        try:
+            sleic_json = open(SLEIC)
+        except IOError as e:
+            print("I/O error({0}): {1}".format(e.errno, e.strerror))
+
+        # SLEIC PI, project, and subject parsing
+        try:
+            sleic_data = json.load(sleic_json)
+
+##            head = ['pi', 'project-id', 'full-event','date', 'start', 'end', 'duration', 'hrs-use-category','subject-id']
+    ##
+    ##        fwrite = csv.writer(csvfile, delimiter=',')
+    ##        write_csv(fwrite,head)
+
+            lastweek = (datetime.today() - timedelta(weeks=1)).timestamp()
+            tomorrow = (datetime.today() + timedelta(days=1)).timestamp()
+            for event in mrislots_events.keys():
+                if (event > lastweek) and (event < tomorrow):
+    ##                print(mrislots_events[event].event)
+                    summary = mrislots_events[event].event.get('summary')
+                    print('Full Event:', summary)
+                    pi = re.search('\w{3}\d{1,4}',summary)
+                    if pi:
+                        print('PI:',pi.group(0))
+                        sub1 = re.sub(pi.group(0),'',summary,1) ## Remove PI
+                        sub2 = re.sub('^[_\s]*(?<=\w)','',sub1) ## Remove leading underscores
+                        sumsplit = re.split('[_\s]',sub2,1) ## Split one underscore or space
+    ##                    proj = re.search('([^_\s]{3,4})(?=\W)?',sub1)
+                        if len(sumsplit)==1:
+                            if len(sumsplit[0])==4:
+                                proj = sumsplit[0]
+                                print('Suggested project ID:',proj)
+                            else:
+                                print('Unclear segment:',sumsplit[0])
+
+                        elif len(sumsplit) == 2:
+                            print('Segment 1:',sumsplit[0])
+                            print('Segment 2:',sumsplit[1])
+    ##                        print('Project ID:',proj.group(0))
+    ##                        sub2 = re.sub(proj.group(0),'',sub1,1)
+    ##                        sub3 = re.sub('[_\s]','',sub2)
+    ##                        if sub3:
+    ##                            print('Subject:',sub3)
+                    print(mrislots_events[event].event.get('start').get('dateTime'))
+                    print(mrislots_events[event].event.get('end').get('dateTime'))
+                    print(mrislots_events[event].duration('m'))
+        except IOError as e:
+            print("I/O error({0}): {1}".format(e.errno, e.strerror))
+        finally:
+            sleic_json.close()
 
         input("Press Enter to continue...")
     except client.AccessTokenRefreshError:
