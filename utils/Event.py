@@ -2,12 +2,14 @@
 # Name:        Event
 # Purpose:
 #
-# Author:      krh5058
+# Author:      Ken Hwang
 #
 # Created:     28/04/2014
 # Copyright:   (c) krh5058 2014
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
+
+__author__ = 'ken.r.hwang@gmail.com (Ken Hwang)'
 
 from datetime import timedelta, datetime
 import re
@@ -33,7 +35,7 @@ class EventClass:
     # Class attributes, redefined at instatiation
     event = None
 
-    def __init__(self, event):
+    def __init__(self):
         self.event = event
 
     def validate(event):
