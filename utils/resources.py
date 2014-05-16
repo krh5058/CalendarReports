@@ -19,12 +19,64 @@ from oauth2client import tools
 import os
 import re
 import json
+from utils import Event
 
-class Directory:
+class DataClass:
+    """
+    Base data storage class
+    Class variables: config, dat, reports
+        'config': Dictionary containing generic object parameters
+            'PATH': Basepath reference, default str ""
+            'SOURCE': Target subdirectory, default str ""
+            'READ': Read privilege, default bool 'True'
+            'WRITE': Write privilege, default bool 'False'
+        'dat': Placeholder for data storage, default list []
+        'reports': Placeholder for reports data, default {None:None}
+    """
+    config = {
+            'PATH':"",
+            'SOURCE':"",
+            'READ':True,
+            'WRITE':False
+         }
+    dat = []
+    reports = {}
+
+    def __init__(self,debug=False,**kwarg):
+        if kwarg is not None:
+            for k,v in kwarg.items():
+                arg = k.upper()
+                if arg in self.config:
+                    param_type = self.config[arg].__class__.__name__
+                    arg_type = v.__class__.__name__
+                    if param_type==arg_type:
+                        self.config[arg] = v
+                    else:
+                        print('(__init__) -- Expected variable of type "{0}" for argument "{1}" received type "{2}" instead.'.format(param_type,k,arg_type))
+                else:
+                    print('(__init__) -- Unrecognized argument "{0}" of value "{1}"'.format(k,v))
+
+        if debug:
+            file = os.path.split(__file__)
+            print('-- DEBUG SUMMARY --')
+            print('Directory...',file[0])
+            print('SOURCE CODE...',file[1])
+            print('MODULE...',__name__)
+            print('CLASS...',self.__class__.__name__)
+            if self.reports:
+                print('REPORTS...')
+                for k,v in self.reports:
+                    if k:
+                        print('{0}: {1}'.k,v)
+            print('-- END DEBUG SUMMARY --')
+
+##    def reporter()
+
+class Directory(DataClass):
     """Directory class for constructing necessary directory paths"""
 
     # Class variables
-    basepath = None
+##    basepath = None
     directories = {'CONFIG':None,
                     'DEV':None,
                     'HISTORY':None,
@@ -35,25 +87,25 @@ class Directory:
                     'SLEIC_REF':None,
                     'AUTH':None}
 
-    def __init__(self,basepath,debug=False):
-        """
-        Initialize Directory class
-        Construct directory folder structure
-        Arguments:
-            basepath, path location of calling file
-        """
-        self.basepath = basepath
-        result = self.define_paths()
-
-        if debug:
-            print('-- DEBUG SUMMARY --')
-            print('SOURCE CODE...','resources.py')
-            print('CLASS...','Directory')
-            print('FUNCTION...',' __init__')
-            print('BASEPATH...',basepath)
-            print('CONFIG PATH...','Not specified')
-            print('DEFINE_PATHS RETURNED...', result)
-            print('-- END DEBUG SUMMARY --')
+##    def __init__(self,basepath,debug=False):
+##        """
+##        Initialize Directory class
+##        Construct directory folder structure
+##        Arguments:
+##            basepath, path location of calling file
+##        """
+##        self.basepath = basepath
+##        result = self.define_paths()
+##
+##        if debug:
+##            print('-- DEBUG SUMMARY --')
+##            print('SOURCE CODE...','resources.py')
+##            print('CLASS...','Directory')
+##            print('FUNCTION...',' __init__')
+##            print('BASEPATH...',basepath)
+##            print('CONFIG PATH...','Not specified')
+##            print('DEFINE_PATHS RETURNED...', result)
+##            print('-- END DEBUG SUMMARY --')
 
     def define_paths(self,*configpath):
         """
@@ -64,15 +116,15 @@ class Directory:
         result = True
 
         # Parse only pertinent directories
-        dirs = [name for name in os.listdir(self.basepath) if os.path.isdir(os.path.join(self.basepath, name))] ## Directories only
+        dirs = [name for name in os.listdir(self.config['PATH']) if os.path.isdir(os.path.join(self.config['PATH'], name))] ## Directories only
         directorykeys = [directory.upper() for directory in dirs if re.match('[._]',directory) is None] ## Remove unnecessary directories
 
         # Validate directory against class dictionary: 'dictionaries'
         for k in directorykeys:
             if k in self.directories.keys():
-                self.directories[k] = os.path.join(self.basepath,k.lower())
+                self.directories[k] = os.path.join(self.config['PATH'],k.lower())
             else:
-                print('Directory (define_paths) -- Unrecognized directory:',k.lower(),'in',self.basepath)
+                print('Directory (define_paths) -- Unrecognized directory:',k.lower(),'in',self.config['PATH'])
                 result = False
 
         # Check if all paths exist
@@ -116,8 +168,10 @@ class Configuration:
     dir_class = []
     credentials = []
     service = []
-    json_files = []
-    config_data = {'CALENDARS':None}
+    config = {
+                'REQUEST_CONFIG':{'CALENDARS':None}, ## Google API HTTP request parameters
+                'EVENT_PARSE':{'SLEIC_REF':None} ## Event reference for SLEIC's MRI Slots calendar
+            }
 
     def __init__(self,dir_class,debug=False):
         """
@@ -129,7 +183,7 @@ class Configuration:
         self.dir_class = dir_class
         auth_result = self.authenticate()
         request_result = self.create_http_request()
-        load_result = self.load_config_data()
+        load_result = self.load_json_to_config()
 
         if debug:
             print('-- DEBUG SUMMARY --')
@@ -139,7 +193,7 @@ class Configuration:
             print('DIR_CLASS...',dir_class)
             print('AUTHENTICATE RETURNED...', auth_result)
             print('CREATE_HTTP_REQUEST RETURNED...', request_result)
-            print('LOAD_CONFIG_DATA RETURNED...', load_result)
+            print('LOAD_JSON_TO_CONFIG RETURNED...', load_result)
             print('-- END DEBUG SUMMARY --')
 
     def authenticate(self):
@@ -201,7 +255,7 @@ class Configuration:
 
         return result
 
-    def load_config_data(self):
+    def load_json_to_config(self):
         """
         Open and load all config data (JSON)
         Read and save data
@@ -209,32 +263,30 @@ class Configuration:
         """
         result = True
 
-        # Use 'config_data' keys to obtain file paths from 'dir_class'
-        for k in self.config_data.keys():
-            try:
-                json_data = open(self.dir_class.configpaths[k])
+        # For each config entry
+        for k in self.config.keys():
+            # Use dictionary keys to obtain file paths from equivalent keys in 'dir_class'
+            for key in self.config[k]:
                 try:
-                    self.config_data[k] = json.load(json_data) ## Load JSON data
-                except:
+                    json_data = open(self.dir_class.configpaths[key])
+                    try:
+                        self.config[k][key] = json.load(json_data) ## Load JSON data
+                    except:
+                        result = False
+                    json_data.close() ## Close files after loaded
+                except IOError as e:
+                    print("I/O error({0}): {1}".format(e.errno, e.strerror))
                     result = False
-                json_data.close() ## Close files after loaded
-            except IOError as e:
-                print("I/O error({0}): {1}".format(e.errno, e.strerror))
-                result = False
 
         return result
 
+    def modify_request_config(self):
+        """
+        Modify configuration parameters for handling request data
+        """
+        return 0
+
 ##    def create_service_request(self):
-##
-##    # Open calendars.json
-##    try:
-##        calendar_json = open(CALENDARS)
-##    except IOError as e:
-##        print("I/O error({0}): {1}".format(e.errno, e.strerror))
-##
-##    # Initialize service, data lists
-##    try:
-##        calendar_data = json.load(calendar_json)
 ##
 ##        # timeMin
 ##        if use_cache:
@@ -269,8 +321,66 @@ class Configuration:
 ##            timeMax = timeMaxStr
 ##            )
 ##        mrislots_events = {}
-##    finally:
-##        calendar_json.close()
+
+class History(DataClass):
+
+##    # Default configuration parameters for reading/writing history
+##    config = {
+##                'PATH':"",
+##                'SOURCE':"",
+##                'READ':True,
+##                'WRITE':False
+##             }
+##    dat = []
+##    report = {}
+
+##    def __init__(self,debug=False,**kwarg):
+##        if kwarg is not None:
+##            for k,v in kwarg.items():
+##                arg = k.upper()
+##                if arg in self.config:
+##                    param_type = self.config[arg].__class__.__name__
+##                    arg_type = v.__class__.__name__
+##                    if param_type==arg_type:
+##                        self.config[arg] = v
+##                    else:
+##                        print('History (__init__) -- Expected variable of type "{0}" for argument "{1}" received type "{2}" instead.'.format(param_type,k,arg_type))
+##                else:
+##                    print('History (__init__) -- Unrecognized argument "{0}" of value "{1}"'.format(k,v))
+
+##        if debug:
+##            print('-- DEBUG SUMMARY --')
+##            print('SOURCE CODE...','resources.py')
+##            print('CLASS...','HISTORY')
+##            print('FUNCTION...',' __init__')
+####            print('AUTHENTICATE RETURNED...', auth_result)
+##            print('-- END DEBUG SUMMARY --')
+
+    def read(self):
+        # Read from source
+        if self.config['READ']:
+            print("History (read) -- Path:",self.config['PATH'])
+            source = self.config['SOURCE']
+            print("History (read) -- Reading from source:",source)
+            path = os.path.join(self.config['PATH'] + os.sep + source.lower())
+            try:
+                listing = os.listdir(path)
+                for filename in listing:
+                    event_json = open(os.path.join(path + os.sep + filename))
+                    time_s = float(os.path.splitext(filename)[0]) ## Filename (timestamp) to float
+                    json_data = json.load(event_json)
+                    if Event.EventClass.validate(json_data):
+                        self.dat.append(Event.EventClass(json_data))
+                        print(Event.EventClass.timestamp_to_datetime(time_s))
+                    event_json.close()
+            except IOError as e:
+                print("I/O error({0}): {1}".format(e.errno, e.strerror))
+            finally:
+                print("History (read) -- Completed read from source:",source)
+        else:
+            print('History (read) -- READ set to "{0}".'.format(self.config['READ']))
+
+##    def write(self):
 
 ### Search SLEIC json
 ##def search_sleic(json_data,pi=None,project=None):

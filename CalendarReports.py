@@ -74,14 +74,23 @@ write_cache = False
 # Main
 def main(argv):
 
-    # Parse the command-line flags.
-    flags = parser.parse_args(argv[1:])
+##    # Parse the command-line flags.
+##    flags = parser.parse_args(argv[1:])
+
+##    obj = resources.DataClass(debug)
 
     # Format directory structure
-    dir_class = resources.Directory(filename,debug)
+    dirObj = resources.Directory(debug,path=filename)
+    dirObj.define_paths()
 
-    # Configure requests
-    config_class = resources.Configuration(dir_class,debug)
+##    # Configure requests
+##    configObj = resources.Configuration(dirObj,debug)
+##
+##    # Read event history
+##    histObj1 = resources.History(path=dirObj.directories['HISTORY'],source='scanop')
+##    histObj1.read()
+##    histObj2 = resources.History(path=dirObj.directories['HISTORY'],source='mrislots')
+##    histObj2.read()
 
     print('done')
 ##

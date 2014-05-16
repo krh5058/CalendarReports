@@ -35,7 +35,7 @@ class EventClass:
     # Class attributes, redefined at instatiation
     event = None
 
-    def __init__(self):
+    def __init__(self,event):
         self.event = event
 
     def validate(event):
