@@ -46,18 +46,18 @@ class EventClass:
         k = list(event.keys())
         if 'start' not in k:
             isValid = False
-            print('start not found')
+##            print('start not found')
         else:
             if 'dateTime' not in list(event.get('start').keys()):
                 isValid = False
-                print('dateTime in start not found')
+##                print('dateTime in start not found')
         if 'end' not in k:
             isValid = False
-            print('end not found')
+##            print('end not found')
         else:
             if 'dateTime' not in list(event.get('end').keys()):
                 isValid = False
-                print('dateTime in end not found')
+##                print('dateTime in end not found')
 
         return isValid
 
