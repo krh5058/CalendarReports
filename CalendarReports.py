@@ -50,7 +50,7 @@ from oauth2client import tools
 
 # Additional imports
 from datetime import timedelta, datetime
-from utils import Event
+from utils.event import EventClass
 from utils.resources import Configure, History
 import re
 import json
@@ -79,15 +79,14 @@ def main(argv):
 
 ##    obj = resources.DataClass(debug)
 
-    #
+    # Create configuration
     configure = Configure(debug,path=filename)
 
     # Read event history
     history = configure._get_path('HISTORY')
-    histObj1 = History(path=history,source='scanop')
-    histObj1.read()
-    histObj2 = History(path=history,source='mrislots')
-    histObj2.read()
+    old = []
+    for source in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
+        old.append(History(debug,path=history,source=source['name']))
 
     print('done')
 

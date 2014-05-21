@@ -20,7 +20,7 @@ from inspect import getmembers,ismethod
 import os
 import re
 import json
-from utils import Event
+from utils.event import EventClass
 
 class Configure:
     """
@@ -31,6 +31,8 @@ class Configure:
             'SOURCE': Target subdirectory, default str ""
         'reports': Placeholder for reports data, default {}
     """
+
+    # Class Attributes
     config = {
             'PATH':"",
             'API':{
@@ -225,7 +227,7 @@ class Configure:
         """
         result = True
 
-        print("(gen_credentials) -- Path:",self.configpaths['CLIENT_SECRETS'])
+##        print("(gen_credentials) -- Path:",self.configpaths['CLIENT_SECRETS'])
         CLIENT_SECRETS = self.configpaths['CLIENT_SECRETS']
 
         # CLIENT_SECRETS is name of a file containing the OAuth 2.0 information for this
@@ -280,18 +282,18 @@ class Configure:
 
         return result
 
-    def modify_service_request(self):
+##    def modify_service_request(self):
 ##        # timeMin
 ##        if use_cache:
 ##            cacheMax = datetime(2014,4,26,16,0,1)
-##            timeMinStr = cacheMax.strftime(Event.EventClass.strfmt)
+##            timeMinStr = cacheMax.strftime(EventClass.strfmt)
 ##        else:
 ##            # Untested
 ##            timeMinStr = None
 ##
 ##        # timeMax, specify weeks in the future
 ##        weeksFuture = 2
-##        timeMaxStr = (datetime.today() + timedelta(weeks=weeksFuture)).strftime(Event.EventClass.strfmt)
+##        timeMaxStr = (datetime.today() + timedelta(weeks=weeksFuture)).strftime(EventClass.strfmt)
 ##
 ##        scanop_data = calendar_data["calendars"]["scanop"]
 ##        scanop = service.events().list(
@@ -339,10 +341,10 @@ class Configure:
 ##                for event in response.get('items', []):
 ##                    # The event object is a dict object.
 ##                    # Store event as EventClass
-##                    if Event.EventClass.validate(event):
+##                    if EventClass.validate(event):
 ##                        obj = Event.EventClass(event)
 ##                        scanop_events[obj.get_start()] = obj
-##        ##                scanop_events.append(Event.EventClass(event))
+##        ##                scanop_events.append(EventClass(event))
 ##                        print(datetime.fromtimestamp(obj.get_start()))
 ##
 ##                        if write_cache:
@@ -366,10 +368,10 @@ class Configure:
 ##                for event in response.get('items', []):
 ##                    # The event object is a dict object.
 ##                    # Store event as EventClass
-##                    if Event.EventClass.validate(event):
-##                        obj = Event.EventClass(event)
+##                    if EventClass.validate(event):
+##                        obj = EventClass(event)
 ##                        mrislots_events[obj.get_start()] = obj
-##        ##                mrislots_events.append(Event.EventClass(event))
+##        ##                mrislots_events.append(EventClass(event))
 ##                        print(datetime.fromtimestamp(obj.get_start()))
 ##
 ##                        if write_cache:
@@ -389,17 +391,39 @@ class Configure:
 
 class History():
 
-    history = []
-    path = None
-    source = None
-    read = True,
+    read = True
     write = False
 
-    def __init__(self,path=None,source=None):
+    def __init__(self,debug,path=None,source=None):
+
+        # Instance Variables
+        self.reports = {
+                    'COUNT':None,
+                    'START':None,
+                    'END':None,
+                    'RANGE':None,
+                }
+        self.history = {}
         self.path = path
         self.source = source
 
-    def read(self):
+        self.readFiles()
+
+        if debug:
+            file = os.path.split(__file__)
+            print('-- DEBUG SUMMARY --')
+            print('Directory...',file[0])
+            print('SOURCE CODE...',file[1])
+            print('MODULE...',__name__)
+            print('CLASS...',self.__class__.__name__)
+            if self.reports:
+                print('REPORTS...')
+                for k,v in self.reports.items():
+                    if k:
+                        print('{0}: {1}'.format(k,v))
+            print('-- END DEBUG SUMMARY --')
+
+    def readFiles(self):
         result = True
 
         # Read from source
@@ -412,20 +436,28 @@ class History():
                     event_json = open(os.path.join(fullpath + os.sep + filename))
                     time_s = float(os.path.splitext(filename)[0]) ## Filename (timestamp) to float
                     json_data = json.load(event_json)
-                    if Event.EventClass.validate(json_data):
-                        self.history.append(Event.EventClass(json_data))
-##                        print(Event.EventClass.timestamp_to_datetime(time_s))
+                    if EventClass.validate(json_data):
+                        self.history[time_s] = EventClass(json_data)
+##                        print(EventClass.timestamp_to_datetime(time_s))
                     event_json.close()
             except IOError as e:
                 print("I/O error({0}): {1}".format(e.errno, e.strerror))
                 result = False
             finally:
                 print("History (read) -- read() finished.")
+                self.report()
         else:
             print('History (read) -- READ set to "{0}".'.format(self.read))
             result = False
 
         return result
+
+    def report(self):
+        l = list(self.history.keys())
+        self.reports['COUNT'] = len(l)
+        self.reports['START'] = min(l)
+        self.reports['END'] = max(l)
+        self.reports['RANGE'] = max(l) - min(l)
 
 ##    def write(self):
 

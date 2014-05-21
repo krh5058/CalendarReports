@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-# Name:        Event
+# Name:        event
 # Purpose:
 #
 # Author:      Ken Hwang
@@ -29,8 +29,11 @@ class EventClass:
     s_cmp = ('s','sec','secs','second','seconds')
     m_cmp = ('m','min','mins','minute','minutes')
     h_cmp = ('h','hr','hrs','hour','hours')
-    dt_cmp = ('d','day','date','datetime')
-    tt_cmp = ('t','tt','tuple','timetuple')
+    d_cmp = ('d','day','days')
+##    mnth_cmp = ('mo','month','months')
+##    y_cmp = ('y','yr','yrs','year','years')
+    dt_cmp = ('dt','date','datetime')
+    tt_cmp = ('tt','tuple','timetuple')
 
     # Class attributes, redefined at instatiation
     event = None
@@ -72,12 +75,20 @@ class EventClass:
 
         return date_num.timestamp()
 
+    def timestamp_to_datestring(time_s):
+        """
+        Output a RFC3399 string
+        """
+
+        time_str = datetime.fromtimestamp(time_s).strftime(EventClass.strfmt)
+        return time_str
+
     def timestamp_to_datetime(time_s):
         """
         Output a datetime() data-type
         """
 
-        time_str = datetime.fromtimestamp(time_s).strftime(EventClass.strfmt)
+        time_str = EventClass.timestamp_to_string(time_s)
         datestrings = EventClass.dateTime_pattern.match(time_str)
         date_num = [int(x) for x in datestrings.groups()]
         return datetime(date_num[0],date_num[1],date_num[2],date_num[3],date_num[4],date_num[5])
@@ -90,6 +101,10 @@ class EventClass:
         return EventClass.timestamp_to_datetime(time_s).timetuple()
 
     def timestamp_conversion(time_s,formatting):
+        """
+        Output a timestamp value according to a formatting argument
+        Output can be seconds, minutes, hours, days
+        """
 
         if formatting.lower() in EventClass.s_cmp:
             format_out = time_s
@@ -97,6 +112,8 @@ class EventClass:
             format_out = time_s/60
         elif formatting.lower() in EventClass.h_cmp:
             format_out = time_s/60/60
+        elif formatting.lower() in EventClass.d_cmp:
+            format_out = time_s/60/60/24
         else:
             raise FormattingError(
                 'EventClass (timestamp_conversion): Unrecognized conversion argument, "' + formatting + '".')
@@ -106,7 +123,7 @@ class EventClass:
     def timestamp_format(time_s,formatting):
         """
         Output a timestamp value according to a formatting argument
-        Output can be seconds, minutes, or hours
+        Output can be datetime or timetuple
         """
 
         if formatting.lower() in EventClass.dt_cmp:
@@ -124,8 +141,8 @@ class EventClass:
 
         time_s = EventClass.datestring_to_timestamp(self.event.get('start').get('dateTime'))
 
-        if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp:
-            format_out = EventClass.timestamp_conversion(time_s,formatting)
+        if formatting.lower() in EventClass.s_cmp:
+            format_out = time_s
         elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp:
             format_out = EventClass.timestamp_format(time_s,formatting)
         else:
@@ -139,8 +156,8 @@ class EventClass:
 
         time_s = EventClass.datestring_to_timestamp(self.event.get('end').get('dateTime'))
 
-        if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp:
-            format_out = EventClass.timestamp_conversion(time_s,formatting)
+        if formatting.lower() in EventClass.s_cmp:
+            format_out = time_s
         elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp:
             format_out = EventClass.timestamp_format(time_s,formatting)
         else:
@@ -156,7 +173,7 @@ class EventClass:
             dur_test = (self.get_end() - self.get_start())
 
             ## Conversion Only
-            if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp:
+            if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp + EventClass.d_cmp:
                 format_out = EventClass.timestamp_conversion(dur_test,formatting)
             else:
                 raise FormattingError(
