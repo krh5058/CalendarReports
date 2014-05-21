@@ -88,6 +88,10 @@ def main(argv):
     for source in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
         old.append(History(debug,path=history,source=source['name']))
 
+    configure.config['REQUEST']['PARAMETERS']['CALENDARS'][0]['timeMin'] = old[0].reports['REQUESTFROM']
+    configure.config['REQUEST']['PARAMETERS']['CALENDARS'][1]['timeMin'] = old[1].reports['REQUESTFROM']
+    configure.save_request_config()
+
     print('done')
 
 ##    finally:

@@ -221,6 +221,29 @@ class Configure:
 
         return result
 
+    def save_request_config(self):
+        """
+        Save changes to JSON config files
+        """
+        result = True
+
+        # For each config entry
+        for k in self.config['REQUEST'].keys():
+            # Use dictionary keys to obtain file paths from equivalent keys in 'configpaths'
+            for key in self.config['REQUEST'][k]:
+                try:
+                    with open(self.configpaths[key],'w') as json_out:
+                        try:
+                            json.dump(self.config['REQUEST'][k][key],json_out) ## Dump JSON data
+                        except:
+                            result = False
+                    json_out.close() ## Close files after loaded
+                except IOError as e:
+                    print("I/O error({0}): {1}".format(e.errno, e.strerror))
+                    result = False
+
+        return result
+
     def gen_credentials(self):
         """
         Generate credentials with Google OAuth2.0 server, or use authentication tokens
@@ -402,12 +425,16 @@ class History():
                     'START':None,
                     'END':None,
                     'RANGE':None,
+                    'REQUESTFROM':None
                 }
         self.history = {}
         self.path = path
         self.source = source
 
-        self.readFiles()
+        if self.read:
+            self.readFiles()
+        else:
+            print('History (read) -- READ set to "{0}".'.format(self.read))
 
         if debug:
             file = os.path.split(__file__)
@@ -427,37 +454,35 @@ class History():
         result = True
 
         # Read from source
-        if self.read:
-            fullpath = Configure._Configure__joinpath(self.path,self.source)
-            print("History (read) -- Reading from {0}".format(fullpath))
-            try:
-                listing = os.listdir(fullpath)
-                for filename in listing:
-                    event_json = open(os.path.join(fullpath + os.sep + filename))
-                    time_s = float(os.path.splitext(filename)[0]) ## Filename (timestamp) to float
-                    json_data = json.load(event_json)
-                    if EventClass.validate(json_data):
-                        self.history[time_s] = EventClass(json_data)
+        fullpath = Configure._Configure__joinpath(self.path,self.source)
+        print("History (read) -- Reading from {0}".format(fullpath))
+        try:
+            listing = os.listdir(fullpath)
+            for filename in listing:
+                event_json = open(os.path.join(fullpath + os.sep + filename))
+                time_s = float(os.path.splitext(filename)[0]) ## Filename (timestamp) to float
+                json_data = json.load(event_json)
+                if EventClass.validate(json_data):
+                    self.history[time_s] = EventClass(json_data)
 ##                        print(EventClass.timestamp_to_datetime(time_s))
-                    event_json.close()
-            except IOError as e:
-                print("I/O error({0}): {1}".format(e.errno, e.strerror))
-                result = False
-            finally:
-                print("History (read) -- read() finished.")
-                self.report()
-        else:
-            print('History (read) -- READ set to "{0}".'.format(self.read))
+                event_json.close()
+        except IOError as e:
+            print("I/O error({0}): {1}".format(e.errno, e.strerror))
             result = False
+        finally:
+            print("History (read) -- read() finished.")
+            self.gen_report()
 
         return result
 
-    def report(self):
+    def gen_report(self):
         l = list(self.history.keys())
         self.reports['COUNT'] = len(l)
         self.reports['START'] = min(l)
         self.reports['END'] = max(l)
         self.reports['RANGE'] = max(l) - min(l)
+        reqfrom_t = self.history[max(l)].get_end() + 1
+        self.reports['REQUESTFROM'] = EventClass.timestamp_to_datestring(reqfrom_t)
 
 ##    def write(self):
 
