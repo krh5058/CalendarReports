@@ -136,6 +136,12 @@ class EventClass:
 
         return format_out
 
+    def today():
+        """
+        Return datetime type for today
+        """
+        return datetime.today()
+
     def get_start(self,formatting='s'):
         """ Timestamp format/conversion from event start date string"""
 

@@ -51,7 +51,7 @@ from oauth2client import tools
 # Additional imports
 from datetime import timedelta, datetime
 from utils.event import EventClass
-from utils.resources import Configure, History
+from utils.resources import Configure, DataStore, History
 import re
 import json
 
@@ -86,11 +86,23 @@ def main(argv):
     history = configure._get_path('HISTORY')
     old = []
     for source in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
-        old.append(History(debug,path=history,source=source['name']))
+        fullpath = Configure._Configure__joinpath(history,source['name'])
+        old.append(History(debug,source=fullpath))
 
-    configure.config['REQUEST']['PARAMETERS']['CALENDARS'][0]['timeMin'] = old[0].reports['REQUESTFROM']
-    configure.config['REQUEST']['PARAMETERS']['CALENDARS'][1]['timeMin'] = old[1].reports['REQUESTFROM']
-    configure.save_request_config()
+    # Set new timeMin for available history
+    for calendar in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
+        for r in old:
+            if r.source==calendar['name']:
+                print('Updating request parameter, {0}, from {1} to {2}'.format('timeMin',calendar['timeMin'],r.reports['REQUESTFROM']))
+                calendar['timeMin'] = r.reports['REQUESTFROM']
+
+    if not configure.save_request_config():
+        print('Saving JSON request parameters failed.')
+
+    # Generate service requests
+    services = configure.gen_service_requests(weeksAhead=0)
+
+    d = DataStore(debug,source=services[0])
 
     print('done')
 

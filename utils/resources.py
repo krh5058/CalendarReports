@@ -17,6 +17,7 @@ from oauth2client import file
 from oauth2client import client
 from oauth2client import tools
 from inspect import getmembers,ismethod
+from datetime import timedelta
 import os
 import re
 import json
@@ -81,7 +82,7 @@ class Configure:
         self.reports['DEFINE_PATHS'] = self.define_paths()
         self.reports['LOAD_JSON_TO_CONFIG'] = self.load_json_to_config()
         self.reports['GEN_CREDENTIALS'] = self.gen_credentials()
-        self.reports['CREATE_SERVICE_REQUEST'] = self.create_service_request()
+        self.reports['CREATE_BASE_SERVICE'] = self.create_base_service()
 
         if debug:
             file = os.path.split(__file__)
@@ -286,7 +287,7 @@ class Configure:
 
         return result
 
-    def create_service_request(self):
+    def create_base_service(self):
         """
         Create an HTTP request type for the API type and version
         """
@@ -305,81 +306,111 @@ class Configure:
 
         return result
 
-##    def modify_service_request(self):
-##        # timeMin
-##        if use_cache:
-##            cacheMax = datetime(2014,4,26,16,0,1)
-##            timeMinStr = cacheMax.strftime(EventClass.strfmt)
-##        else:
-##            # Untested
-##            timeMinStr = None
-##
-##        # timeMax, specify weeks in the future
-##        weeksFuture = 2
-##        timeMaxStr = (datetime.today() + timedelta(weeks=weeksFuture)).strftime(EventClass.strfmt)
-##
-##        scanop_data = calendar_data["calendars"]["scanop"]
-##        scanop = service.events().list(
-##            calendarId=scanop_data["calendarId"],
-##            singleEvents=(scanop_data["singleEvents"]=="True"),
-##            orderBy=scanop_data["orderBy"],
-##            timeZone = scanop_data["timeZone"],
-##            timeMin = timeMinStr,
-##            timeMax = timeMaxStr
-##            )
-##        scanop_events = {}
-##
-##        mrislots_data = calendar_data["calendars"]["mrislots"]
-##        mrislots = service.events().list(
-##            calendarId=mrislots_data["calendarId"],
-##            singleEvents=(mrislots_data["singleEvents"]=="True"),
-##            orderBy=mrislots_data["orderBy"],
-##            timeZone = mrislots_data["timeZone"],
-##            timeMin = timeMinStr,
-##            timeMax = timeMaxStr
-##            )
-##        mrislots_events = {}
-##
-##        return result
+    def gen_service_requests(self,weeksAhead=2):
 
-##    def modify_request_config(self):
-##        """
-##        Modify configuration parameters for handling request data
-##        """
-##        return 0
-##
-##    def query_data(self):
-##        # HTTP Requests
-##        try:
-##            print("--------------Start Calendar HTTP Requests...")
-##
-##            # Scanner Operator Availability
-##            # Loop until all pages have been processed.
+        if self.config['API']['type']=='calendar':
+
+            # timeMax, specify weeks in the future
+            timeMaxStr = (EventClass.today() + timedelta(weeks=weeksAhead)).strftime(EventClass.strfmt)
+
+            # Iterate through services
+            services = []
+            for __config in self.config['REQUEST']['PARAMETERS']['CALENDARS']:
+                __service = self.service
+                services.append(__service.events().list(
+                            calendarId=__config["calendarId"],
+                            singleEvents=__config["singleEvents"],
+                            orderBy=__config["orderBy"],
+                            timeZone = __config["timeZone"],
+                            timeMin = __config["timeMin"],
+                            timeMax = timeMaxStr
+                        )
+                    )
+            return services
+        else:
+            print('Unsupported API type: {0}'.format(self.config['API']['type']))
+
+class DataStore():
+
+    read = True
+    write = False
+
+    def __init__(self,debug,source=None):
+
+        # Instance Variables
+        self.reports = {
+                    'COUNT':None,
+                    'START':None,
+                    'END':None,
+                    'RANGE':None,
+                    'REQUESTFROM':None
+                }
+        self.dat = {}
+        if source is not None:
+            self.source = source
+        else:
+            raise Exception('DataStore -- Source empty!')
+
+        if self.read:
+            self.getEvents()
+        else:
+            print('DataStore -- READ set to "{0}".'.format(self.read))
+
+        if debug:
+            file = os.path.split(__file__)
+            print('-- DEBUG SUMMARY --')
+            print('Directory...',file[0])
+            print('SOURCE CODE...',file[1])
+            print('MODULE...',__name__)
+            print('CLASS...',self.__class__.__name__)
+            if self.reports:
+                print('REPORTS...')
+                for k,v in self.reports.items():
+                    if k:
+                        print('{0}: {1}'.format(k,v))
+            print('-- END DEBUG SUMMARY --')
+
+    def gen_report(self):
+        l = list(self.dat.keys())
+        self.reports['COUNT'] = len(l)
+        self.reports['START'] = min(l)
+        self.reports['END'] = max(l)
+        self.reports['RANGE'] = max(l) - min(l)
+        reqfrom_t = self.dat[max(l)].get_end() + 1
+        self.reports['REQUESTFROM'] = EventClass.timestamp_to_datestring(reqfrom_t)
+
+    def getEvents(self):
+        # HTTP Requests
+        try:
+            print("DataStore (getEvents) -- starting calendar HTTP Requests...")
+
+            # Scanner Operator Availability
+            # Loop until all pages have been processed.
 ##            print("--------------Start Scanner Operator Requests...")
-##            while scanop != None:
-##                # Get the next page.
-##                response = scanop.execute()
-##                # Accessing the response like a dict object with an 'items' key
-##                # returns a list of item objects (events).
-##                for event in response.get('items', []):
-##                    # The event object is a dict object.
-##                    # Store event as EventClass
-##                    if EventClass.validate(event):
-##                        obj = Event.EventClass(event)
-##                        scanop_events[obj.get_start()] = obj
-##        ##                scanop_events.append(EventClass(event))
+            while self.source != None:
+                # Get the next page.
+                response = self.source.execute()
+                # Accessing the response like a dict object with an 'items' key
+                # returns a list of item objects (events).
+                for event in response.get('items', []):
+                    # The event object is a dict object.
+                    # Store event as EventClass
+                    if EventClass.validate(event):
+                        obj = EventClass(event)
+                        self.dat[obj.get_start()] = obj
+        ##                scanop_events.append(EventClass(event))
 ##                        print(datetime.fromtimestamp(obj.get_start()))
-##
-##                        if write_cache:
+
+##                        if self.write:
 ##                            outfile = open(HISTORY + "scanop/" + str(obj.get_start()) + '.json','w')
 ##        ##                    outfile = open(HISTORY + "scanop/" + str(scanop_events[-1].start_s) + '.json','w')
 ##                            json.dump(event,outfile)
 ##                            outfile.close()
-##
-##                    # Get the next request object by passing the previous request object to
-##                    # the list_next method.
-##                    scanop = service.events().list_next(scanop, response)
-##
+
+                    # Get the next request object by passing the previous request object to
+                    # the list_next method.
+                    self.source = Configure.service.events().list_next(self.source, response)
+
 ##            # MRI Slots
 ##            # Loop until all pages have been processed.
 ##            print("--------------Start MRI Slots Requests...")
@@ -406,64 +437,27 @@ class Configure:
 ##                    # Get the next request object by passing the previous request object to
 ##                    # the list_next method.
 ##                    mrislots = service.events().list_next(mrislots, response)
-##
-##            input("Press Enter to continue...")
-##        except client.AccessTokenRefreshError:
-##            print ("The credentials have been revoked or expired, please re-run"
-##              "the application to re-authorize")
 
-class History():
+            input("Press Enter to continue...")
+        except client.AccessTokenRefreshError:
+            print ("The credentials have been revoked or expired, please re-run"
+              "the application to re-authorize")
 
-    read = True
-    write = False
+class History(DataStore):
 
-    def __init__(self,debug,path=None,source=None):
-
-        # Instance Variables
-        self.reports = {
-                    'COUNT':None,
-                    'START':None,
-                    'END':None,
-                    'RANGE':None,
-                    'REQUESTFROM':None
-                }
-        self.history = {}
-        self.path = path
-        self.source = source
-
-        if self.read:
-            self.readFiles()
-        else:
-            print('History (read) -- READ set to "{0}".'.format(self.read))
-
-        if debug:
-            file = os.path.split(__file__)
-            print('-- DEBUG SUMMARY --')
-            print('Directory...',file[0])
-            print('SOURCE CODE...',file[1])
-            print('MODULE...',__name__)
-            print('CLASS...',self.__class__.__name__)
-            if self.reports:
-                print('REPORTS...')
-                for k,v in self.reports.items():
-                    if k:
-                        print('{0}: {1}'.format(k,v))
-            print('-- END DEBUG SUMMARY --')
-
-    def readFiles(self):
+    def getEvents(self):
         result = True
 
         # Read from source
-        fullpath = Configure._Configure__joinpath(self.path,self.source)
-        print("History (read) -- Reading from {0}".format(fullpath))
+        print("History (read) -- Reading from {0}".format(self.source))
         try:
-            listing = os.listdir(fullpath)
+            listing = os.listdir(self.source)
             for filename in listing:
-                event_json = open(os.path.join(fullpath + os.sep + filename))
+                event_json = open(os.path.join(self.source + os.sep + filename))
                 time_s = float(os.path.splitext(filename)[0]) ## Filename (timestamp) to float
                 json_data = json.load(event_json)
                 if EventClass.validate(json_data):
-                    self.history[time_s] = EventClass(json_data)
+                    self.dat[time_s] = EventClass(json_data)
 ##                        print(EventClass.timestamp_to_datetime(time_s))
                 event_json.close()
         except IOError as e:
@@ -475,16 +469,6 @@ class History():
 
         return result
 
-    def gen_report(self):
-        l = list(self.history.keys())
-        self.reports['COUNT'] = len(l)
-        self.reports['START'] = min(l)
-        self.reports['END'] = max(l)
-        self.reports['RANGE'] = max(l) - min(l)
-        reqfrom_t = self.history[max(l)].get_end() + 1
-        self.reports['REQUESTFROM'] = EventClass.timestamp_to_datestring(reqfrom_t)
-
-##    def write(self):
 
 ### Open SLEIC dictionary resource
 ##    try:
