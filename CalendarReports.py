@@ -77,8 +77,6 @@ def main(argv):
 ##    # Parse the command-line flags.
 ##    flags = parser.parse_args(argv[1:])
 
-##    obj = resources.DataClass(debug)
-
     # Create configuration
     configure = Configure(debug,path=filename)
 
@@ -92,11 +90,13 @@ def main(argv):
     # Set new timeMin for available history
     for calendar in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
         for r in old:
-            if r.source==calendar['name']:
+            if os.path.split(r.source)[1]==calendar['name']:
                 print('Updating request parameter, {0}, from {1} to {2}'.format('timeMin',calendar['timeMin'],r.reports['REQUESTFROM']))
                 calendar['timeMin'] = r.reports['REQUESTFROM']
 
-    if not configure.save_request_config():
+    if configure.save_request_config():
+        print('JSON request parameters saved.')
+    else:
         print('Saving JSON request parameters failed.')
 
     # Generate service requests
@@ -106,8 +106,6 @@ def main(argv):
 
     print('done')
 
-##    finally:
-##        print("--------------End Calendar HTTP Requests.")
 
 if __name__ == '__main__':
   main(sys.argv)

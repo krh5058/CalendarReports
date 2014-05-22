@@ -9,6 +9,11 @@
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
+"""Resources for Google API service
+
+Configure, query, and store service data
+"""
+
 __author__ = 'ken.r.hwang@gmail.com (Ken Hwang)'
 
 import httplib2
@@ -24,12 +29,18 @@ import json
 from utils.event import EventClass
 
 class Configure:
-    """
-    Base data storage class
-    Class variables: config, dat, reports
-        'config': Dictionary containing generic object parameters
+    """Base configuration class
+
+    Class variables: config, directories, configpaths, reports
+        'config': Dictionary containing class parameters
             'PATH': Basepath reference, default str ""
-            'SOURCE': Target subdirectory, default str ""
+            'API': 'type' and 'version' of API
+            'REQUEST': 'PARAMETERS' and 'EVENT_PARSE',
+                for calendar request parameters and event data parsing data
+            'CREDENTIALS': Authorized credentials for HTTP request
+            'SERVICE': Discovery service object
+        'directories': Path directories
+        'configpaths': JSON config path directories
         'reports': Placeholder for reports data, default {}
     """
 
@@ -47,7 +58,9 @@ class Configure:
                 'EVENT_PARSE':{
                     'SLEIC_REF':None ## Event reference for SLEIC's MRI Slots calendar
                     }
-                }
+                },
+            'CREDENTIALS':None,
+            'SERVICE':None
             }
 
     directories = {'CONFIG':None,
@@ -60,12 +73,14 @@ class Configure:
                     'SLEIC_REF':None,
                     'AUTH':None}
 
-    credentials = []
-    service = []
-
     reports = {}
 
     def __init__(self,debug=False,**kwarg):
+        """Initialize Configure class
+        Arguments:
+            'debug': True/False, to display debug text
+            Any key in the Configure.config dict.  'path' is required.
+        """
         if kwarg is not None:
             for k,v in kwarg.items():
                 arg = k.upper()
@@ -75,9 +90,9 @@ class Configure:
                     if param_type==arg_type:
                         self.config[arg] = v
                     else:
-                        print('(__init__) -- Expected variable of type "{0}" for argument "{1}" received type "{2}" instead.'.format(param_type,k,arg_type))
+                        print('Configure (__init__) -- Expected variable of type "{0}" for argument "{1}" received type "{2}" instead.'.format(param_type,k,arg_type))
                 else:
-                    print('(__init__) -- Unrecognized argument "{0}" of value "{1}"'.format(k,v))
+                    print('Configure (__init__) -- Unrecognized argument "{0}" of value "{1}"'.format(k,v))
 
         self.reports['DEFINE_PATHS'] = self.define_paths()
         self.reports['LOAD_JSON_TO_CONFIG'] = self.load_json_to_config()
@@ -99,45 +114,27 @@ class Configure:
             print('-- END DEBUG SUMMARY --')
 
     def __joinpath(path,file):
-        """
-        Join PATH and FILE
+        """Join PATH and FILE
         """
         return os.path.join(path + os.sep + file.lower())
 
     def _get_path(self,key):
+        """Get a path directory from class attribute
+        Argument: key associated with either 'directories' or
+            'configpaths' dictionary
+        """
         if key.upper() in self.directories:
             path = self.directories[key.upper()]
         elif key.upper() in self.configpaths:
-            path = self.directories[key.upper()]
+            path = self.configpaths[key.upper()]
         else:
-            print('(_get_path) -- Unrecognized path identifier "{0}"'.format(key))
+            print('Configure (_get_path) -- Unrecognized path identifier "{0}"'.format(key))
             return
 
         if path is None:
-            print('(_get_path) -- Path identifier "{0}" returned "None".  Define paths with "define_paths" first.'.format(key))
+            print('Configure (_get_path) -- Path identifier "{0}" returned "None".  Define paths with "define_paths" first.'.format(key))
         else:
             return path
-
-##    # Search SLEIC json
-##    def _get_event_ref(pi=None,project=None):
-##        out = []
-##        for pi_line in self.config['REQUEST']['EVENT_PARSE']['SLEIC_REF']:
-##            if pi is not None:
-##                print('looking for',pi)
-##                if pi_line["pi"]==pi:
-##                    print('found',pi_line["pi"])
-##                    for project_line in pi_line["project"]:
-##                        if project is not None:
-##                            print('looking for',project)
-##                            if project_line["id"]==project:
-##                                print('found',project_line["id"])
-##                                out = project_line["subject"]
-##                        else:
-##                            out.append(project_line["id"])
-##            else:
-##                out.append(pi_line["pi"])
-##
-##        return out
 
 ##    def __runroutine(self):
 ####        for i in range(0,len(self._routine)):
@@ -150,8 +147,7 @@ class Configure:
 ##                self.reports[method[0]] = method[1]()
 
     def define_paths(self):
-        """
-        Define directory paths from basepath, config['PATH']
+        """Define directory paths from basepath, config['PATH']
         Define JSON configure files from config path, directories['CONFIG']
         """
 
@@ -166,12 +162,12 @@ class Configure:
             if k in self.directories.keys():
                 self.directories[k] = os.path.join(self.config['PATH'],k.lower())
             else:
-                print('(define_paths) -- Unrecognized directory:',k.lower(),'in',self.config['PATH'])
+                print('Configure (define_paths) -- Unrecognized directory:',k.lower(),'in',self.config['PATH'])
                 result = False
 
         # Check if all paths exist
         if None in self.directories.values():
-            print('(define_paths) -- Incomplete directory listing...')
+            print('Configure (define_paths) -- Incomplete directory listing...')
             for k, v in self.directories.items():
                 print(k,':',v)
             result = False
@@ -185,12 +181,12 @@ class Configure:
             if filekey in self.configpaths.keys():
                 self.configpaths[filekey] = os.path.join(configpath,file)
             else:
-                print('(define_paths) -- Unrecognized file:',os.path.join(configpath,file))
+                print('Configure (define_paths) -- Unrecognized file:',os.path.join(configpath,file))
                 result = False
 
         # Check if all JSON paths exist
         if None in self.configpaths.values():
-            print('(define_paths) -- Incomplete config file listing...')
+            print('Configure (define_paths) -- Incomplete config file listing...')
             for k, v in self.configpaths.items():
                 print(k,':',v)
             result = False
@@ -198,10 +194,8 @@ class Configure:
         return result
 
     def load_json_to_config(self):
-        """
-        Open and load all config data (JSON)
-        Read and save data
-        Close all config files
+        """Open and load all config data (JSON)
+        Read and store data
         """
         result = True
 
@@ -223,8 +217,7 @@ class Configure:
         return result
 
     def save_request_config(self):
-        """
-        Save changes to JSON config files
+        """Save changes to JSON config files
         """
         result = True
 
@@ -246,8 +239,8 @@ class Configure:
         return result
 
     def gen_credentials(self):
-        """
-        Generate credentials with Google OAuth2.0 server, or use authentication tokens
+        """Generate credentials with Google OAuth2.0 server,
+            or use authentication tokens
         """
         result = True
 
@@ -267,8 +260,8 @@ class Configure:
         # credentials will get written back to the file.
         try:
             storage = file.Storage(self.configpaths['AUTH']) ## Read, or write to config path if necessary
-            self.credentials = storage.get()
-            if self.credentials is None or self.credentials.invalid:
+            self.config['CREDENTIALS'] = storage.get()
+            if self.config['CREDENTIALS'] is None or self.config['CREDENTIALS'].invalid:
                 print('(gen_credentials) -- Re-authenticating and re-writing credentials.')
 
                 # Set up a Flow object to be used for authentication.
@@ -281,15 +274,14 @@ class Configure:
                       'https://www.googleapis.com/auth/calendar.readonly',
                     ],
                     message=tools.message_if_missing(CLIENT_SECRETS))
-                self.credentials = tools.run_flow(FLOW, storage, flags)
+                self.config['CREDENTIALS'] = tools.run_flow(FLOW, storage, flags)
         except:
             result = False
 
         return result
 
     def create_base_service(self):
-        """
-        Create an HTTP request type for the API type and version
+        """Create an HTTP request type for API type and version
         """
         result = True
 
@@ -297,16 +289,20 @@ class Configure:
             # Create an httplib2.Http object to handle our HTTP requests and authorize it
             # with our good Credentials.
             http = httplib2.Http()
-            http = self.credentials.authorize(http)
+            http = self.config['CREDENTIALS'].authorize(http)
 
             # Construct the service object for the interacting with the Calendar API.
-            self.service = discovery.build(self.config['API']['type'], self.config['API']['version'], http=http)
+            self.config['SERVICE'] = discovery.build(self.config['API']['type'], self.config['API']['version'], http=http)
         except:
             result = False
 
         return result
 
     def gen_service_requests(self,weeksAhead=2):
+        """Generate parameters for all service requests
+        Arguments: weeksAhead, value of weeks ahead from today events should be drawn
+        Returns list of services
+        """
 
         if self.config['API']['type']=='calendar':
 
@@ -316,7 +312,7 @@ class Configure:
             # Iterate through services
             services = []
             for __config in self.config['REQUEST']['PARAMETERS']['CALENDARS']:
-                __service = self.service
+                __service = self.config['SERVICE']
                 services.append(__service.events().list(
                             calendarId=__config["calendarId"],
                             singleEvents=__config["singleEvents"],
@@ -331,11 +327,25 @@ class Configure:
             print('Unsupported API type: {0}'.format(self.config['API']['type']))
 
 class DataStore():
+    """Base data storage class
+
+    Class variables: read, write
+
+    Will generate events using a Google discovery service, 'source', and save
+    to instance storage.  After instantiation, will automatically run
+    gen_events() and gen_report().  If debug=True, a summary will be printed.
+    """
 
     read = True
     write = False
 
     def __init__(self,debug,source=None):
+        """
+        Initialize DataStore class type.
+        Arguments:
+            'debug': True/False, to display debug text
+            source: Any type of source for get_events to pull event data from
+        """
 
         # Instance Variables
         self.reports = {
@@ -352,9 +362,11 @@ class DataStore():
             raise Exception('DataStore -- Source empty!')
 
         if self.read:
-            self.getEvents()
+            self.get_events()
         else:
             print('DataStore -- READ set to "{0}".'.format(self.read))
+
+        self.gen_report()
 
         if debug:
             file = os.path.split(__file__)
@@ -371,6 +383,8 @@ class DataStore():
             print('-- END DEBUG SUMMARY --')
 
     def gen_report(self):
+        """Generate reports based on event storage
+        """
         l = list(self.dat.keys())
         self.reports['COUNT'] = len(l)
         self.reports['START'] = min(l)
@@ -379,14 +393,18 @@ class DataStore():
         reqfrom_t = self.dat[max(l)].get_end() + 1
         self.reports['REQUESTFROM'] = EventClass.timestamp_to_datestring(reqfrom_t)
 
-    def getEvents(self):
+    def get_events(self):
+        """Get events from discovery service
+        Paginate through responses, and execute more responses when no more
+        event items.  End requests, when no more event data received.
+        Each event is validated as appropriate data for EventClass, then stored
+        against their timestamp (float) in instance.
+        """
         # HTTP Requests
         try:
-            print("DataStore (getEvents) -- starting calendar HTTP Requests...")
-
+            print("getEvents -- Starting calendar HTTP Requests...")
             # Scanner Operator Availability
             # Loop until all pages have been processed.
-##            print("--------------Start Scanner Operator Requests...")
             while self.source != None:
                 # Get the next page.
                 response = self.source.execute()
@@ -398,54 +416,28 @@ class DataStore():
                     if EventClass.validate(event):
                         obj = EventClass(event)
                         self.dat[obj.get_start()] = obj
-        ##                scanop_events.append(EventClass(event))
-##                        print(datetime.fromtimestamp(obj.get_start()))
-
-##                        if self.write:
-##                            outfile = open(HISTORY + "scanop/" + str(obj.get_start()) + '.json','w')
-##        ##                    outfile = open(HISTORY + "scanop/" + str(scanop_events[-1].start_s) + '.json','w')
-##                            json.dump(event,outfile)
-##                            outfile.close()
 
                     # Get the next request object by passing the previous request object to
                     # the list_next method.
-                    self.source = Configure.service.events().list_next(self.source, response)
-
-##            # MRI Slots
-##            # Loop until all pages have been processed.
-##            print("--------------Start MRI Slots Requests...")
-##            while mrislots != None:
-##                # Get the next page.
-##                response = mrislots.execute()
-##                # Accessing the response like a dict object with an 'items' key
-##                # returns a list of item objects (events).
-##                for event in response.get('items', []):
-##                    # The event object is a dict object.
-##                    # Store event as EventClass
-##                    if EventClass.validate(event):
-##                        obj = EventClass(event)
-##                        mrislots_events[obj.get_start()] = obj
-##        ##                mrislots_events.append(EventClass(event))
-##                        print(datetime.fromtimestamp(obj.get_start()))
-##
-##                        if write_cache:
-##                            outfile = open(HISTORY + "mrislots/" + str(obj.get_start()) + '.json','w')
-##        ##                    outfile = open(HISTORY + "mrislots/" + str(mrislots_events[-1].start_s) + '.json','w')
-##                            json.dump(event,outfile)
-##                            outfile.close()
-##
-##                    # Get the next request object by passing the previous request object to
-##                    # the list_next method.
-##                    mrislots = service.events().list_next(mrislots, response)
+                    self.source = Configure.config['SERVICE'].events().list_next(self.source, response)
 
             input("Press Enter to continue...")
         except client.AccessTokenRefreshError:
             print ("The credentials have been revoked or expired, please re-run"
               "the application to re-authorize")
+        finally:
+            print("getEvents -- Finished calendar HTTP Requests...")
 
 class History(DataStore):
+    """History subclass of DataStore
+    Overridden get_events()
+    """
 
-    def getEvents(self):
+    def get_events(self):
+        """
+        Get events from saved local JSON data
+        'source' is a path directory for 'history' files
+        """
         result = True
 
         # Read from source
@@ -469,6 +461,26 @@ class History(DataStore):
 
         return result
 
+##    # Search SLEIC json
+##    def _get_event_ref(pi=None,project=None):
+##        out = []
+##        for pi_line in self.config['REQUEST']['EVENT_PARSE']['SLEIC_REF']:
+##            if pi is not None:
+##                print('looking for',pi)
+##                if pi_line["pi"]==pi:
+##                    print('found',pi_line["pi"])
+##                    for project_line in pi_line["project"]:
+##                        if project is not None:
+##                            print('looking for',project)
+##                            if project_line["id"]==project:
+##                                print('found',project_line["id"])
+##                                out = project_line["subject"]
+##                        else:
+##                            out.append(project_line["id"])
+##            else:
+##                out.append(pi_line["pi"])
+##
+##        return out
 
 ### Open SLEIC dictionary resource
 ##    try:
