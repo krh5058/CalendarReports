@@ -39,6 +39,8 @@ class Configure:
                 for calendar request parameters and event data parsing data
             'CREDENTIALS': Authorized credentials for HTTP request
             'SERVICE': Discovery service object
+        'log': Logging parameters
+            'TIME': Current date/time
         'directories': Path directories
         'configpaths': JSON config path directories
         'reports': Placeholder for reports data, default {}
@@ -62,6 +64,11 @@ class Configure:
             'CREDENTIALS':None,
             'SERVICE':None
             }
+
+    log = {
+        'TIME':None,
+        'REQUEST_ORDER':[]
+        }
 
     directories = {'CONFIG':None,
                     'DEV':None,
@@ -93,6 +100,8 @@ class Configure:
                         print('Configure (__init__) -- Expected variable of type "{0}" for argument "{1}" received type "{2}" instead.'.format(param_type,k,arg_type))
                 else:
                     print('Configure (__init__) -- Unrecognized argument "{0}" of value "{1}"'.format(k,v))
+
+        self.start_log()
 
         self.reports['DEFINE_PATHS'] = self.define_paths()
         self.reports['LOAD_JSON_TO_CONFIG'] = self.load_json_to_config()
@@ -145,6 +154,9 @@ class Configure:
 ##        for method in methods:
 ##            if method[0] is not '__init__' and 'DataClass' not in method[0]: # Ignore init, and ignore DataClass base methods
 ##                self.reports[method[0]] = method[1]()
+
+    def start_log(self):
+        self.log['TIME'] = EventClass.today()
 
     def define_paths(self):
         """Define directory paths from basepath, config['PATH']
@@ -307,11 +319,12 @@ class Configure:
         if self.config['API']['type']=='calendar':
 
             # timeMax, specify weeks in the future
-            timeMaxStr = (EventClass.today() + timedelta(weeks=weeksAhead)).strftime(EventClass.strfmt)
+            timeMaxStr = (self.log['TIME'] + timedelta(weeks=weeksAhead)).strftime(EventClass.strfmt)
 
             # Iterate through services
             services = []
             for __config in self.config['REQUEST']['PARAMETERS']['CALENDARS']:
+                self.log['REQUEST_ORDER'].append(__config['name'])
                 __service = self.config['SERVICE']
                 services.append(__service.events().list(
                             calendarId=__config["calendarId"],
@@ -325,6 +338,19 @@ class Configure:
             return services
         else:
             print('Unsupported API type: {0}'.format(self.config['API']['type']))
+
+def set_timestamp_args(f):
+    def wrapper(obj,**kwargs):
+        args = {'start':obj.reports['START'],'end':obj.reports['END']} ## Default
+        if kwargs:
+            for k,v in kwargs.items():
+                if k in args.keys(): ## If valid keyword
+                    if v.__class__.__name__ == args[k].__class__.__name__: ## If valid class type
+                        args[k] = v
+                    else:
+                        raise Exception('set_timestamp_args - Unexpected argument type {0}!'.format(v.__class__.__name__))
+        return f(obj,args['start'],args['end'])
+    return wrapper
 
 class DataStore():
     """Base data storage class
@@ -359,12 +385,19 @@ class DataStore():
         if source is not None:
             self.source = source
         else:
-            raise Exception('DataStore -- Source empty!')
+            raise Exception('DataStore (__init__) -- Source empty!')
 
+        # Read events
         if self.read:
             self.get_events()
         else:
-            print('DataStore -- READ set to "{0}".'.format(self.read))
+            print('DataStore (__init__) -- READ set to "{0}".'.format(self.read))
+
+##        # Write Events
+##        if self.write:
+##            self.save_events()
+##        else:
+##            print('DataStore -- Write set to "{0}".'.format(self.write))
 
         self.gen_report()
 
@@ -420,13 +453,38 @@ class DataStore():
                     # Get the next request object by passing the previous request object to
                     # the list_next method.
                     self.source = Configure.config['SERVICE'].events().list_next(self.source, response)
-
-            input("Press Enter to continue...")
         except client.AccessTokenRefreshError:
             print ("The credentials have been revoked or expired, please re-run"
               "the application to re-authorize")
         finally:
             print("getEvents -- Finished calendar HTTP Requests...")
+
+    def add_to_dat_dict(self,d):
+        """
+        Update dictionary with more items
+        Argument:
+            'd': dictionary, assumed to include timestamp key values and
+                EventClass object values.
+        """
+        if not isinstance(d,dict):
+            raise Exception('DataStore (add_to_dat_dict) -- Argument is not dictionary instance!')
+
+        self.dat.update(d)
+
+    @set_timestamp_args
+    def find_events(self,start,end):
+        """
+
+        """
+        event_keys = sorted([k for k in list(self.dat.keys()) if end >= k >= start])
+        out = {}
+        if event_keys:
+            for t in event_keys:
+                out[t] = self.dat[t]
+
+        return out
+
+##    def save_events():
 
 class History(DataStore):
     """History subclass of DataStore
@@ -460,6 +518,8 @@ class History(DataStore):
             self.gen_report()
 
         return result
+
+
 
 ##    # Search SLEIC json
 ##    def _get_event_ref(pi=None,project=None):

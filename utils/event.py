@@ -34,6 +34,7 @@ class EventClass:
 ##    y_cmp = ('y','yr','yrs','year','years')
     dt_cmp = ('dt','date','datetime')
     tt_cmp = ('tt','tuple','timetuple')
+    wn_cmp = ('w','wk','wn','week')
 
     # Class attributes, redefined at instatiation
     event = None
@@ -88,17 +89,24 @@ class EventClass:
         Output a datetime() data-type
         """
 
-        time_str = EventClass.timestamp_to_string(time_s)
+        time_str = EventClass.timestamp_to_datestring(time_s)
         datestrings = EventClass.dateTime_pattern.match(time_str)
         date_num = [int(x) for x in datestrings.groups()]
         return datetime(date_num[0],date_num[1],date_num[2],date_num[3],date_num[4],date_num[5])
 
     def timestamp_to_timetuple(time_s):
         """
-        Output a datetime().isocalendar() data-type
+        Output a datetime().timetuple() data-type
         """
 
         return EventClass.timestamp_to_datetime(time_s).timetuple()
+
+    def timestamp_to_weeknumber(time_s):
+        """
+        Output a datetime().isocalendar()[1] data-type (ISO week numbeR)
+        """
+
+        return EventClass.timestamp_to_datetime(time_s).isocalendar()[1]
 
     def timestamp_conversion(time_s,formatting):
         """
@@ -130,6 +138,8 @@ class EventClass:
             format_out = EventClass.timestamp_to_datetime(time_s)
         elif formatting.lower() in EventClass.tt_cmp:
             format_out = EventClass.timestamp_to_timetuple(time_s)
+        elif formatting.lower() in EventClass.wn_cmp:
+            format_out = EventClass.timestamp_to_weeknumber(time_s)
         else:
             raise FormattingError(
                 'EventClass (timestamp_format): Unrecognized formatting argument, "' + formatting + '".')
@@ -149,7 +159,7 @@ class EventClass:
 
         if formatting.lower() in EventClass.s_cmp:
             format_out = time_s
-        elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp:
+        elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp + EventClass.wn_cmp:
             format_out = EventClass.timestamp_format(time_s,formatting)
         else:
             raise FormattingError(
@@ -164,7 +174,7 @@ class EventClass:
 
         if formatting.lower() in EventClass.s_cmp:
             format_out = time_s
-        elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp:
+        elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp + EventClass.wn_cmp:
             format_out = EventClass.timestamp_format(time_s,formatting)
         else:
             raise FormattingError(

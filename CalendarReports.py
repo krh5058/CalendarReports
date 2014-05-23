@@ -81,31 +81,44 @@ def main(argv):
     configure = Configure(debug,path=filename)
 
     # Read event history
-    history = configure._get_path('HISTORY')
-    old = []
-    for source in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
-        fullpath = Configure._Configure__joinpath(history,source['name'])
-        old.append(History(debug,source=fullpath))
+    if History.read:
+        history = configure._get_path('HISTORY')
+        old = []
+        for source in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
+            fullpath = Configure._Configure__joinpath(history,source['name'])
+            old.append(History(debug,source=fullpath))
 
-    # Set new timeMin for available history
-    for calendar in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
-        for r in old:
-            if os.path.split(r.source)[1]==calendar['name']:
-                print('Updating request parameter, {0}, from {1} to {2}'.format('timeMin',calendar['timeMin'],r.reports['REQUESTFROM']))
-                calendar['timeMin'] = r.reports['REQUESTFROM']
+        # Set/save new timeMin for available history
+        # Get calendar order in config
+        for calendar in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
+            for r in old:
+                if os.path.split(r.source)[1]==calendar['name']:
+                    print('Updating request parameter, {0}, from {1} to {2}'.format('timeMin',calendar['timeMin'],r.reports['REQUESTFROM']))
+                    calendar['timeMin'] = r.reports['REQUESTFROM']
 
-    if configure.save_request_config():
-        print('JSON request parameters saved.')
-    else:
-        print('Saving JSON request parameters failed.')
+        if configure.save_request_config():
+            print('JSON request parameters saved.')
+        else:
+            print('Saving JSON request parameters failed.')
 
-    # Generate service requests
-    services = configure.gen_service_requests(weeksAhead=0)
+    # Read new events and consolidate with history
+    if DataStore.read:
+        # Generate service requests, same as 'REQUEST_ORDER' order
+        services = configure.gen_service_requests(weeksAhead=0)
 
-    d = DataStore(debug,source=services[0])
+        # Request events, in order, and update with history if they exist
+        current = []
+        for i in range(0,len(configure.log['REQUEST_ORDER'])):
+            current.append(DataStore(debug,source=services[i]))
+            if 'old' in locals(): ## If history exists
+                current[i].add_to_dat_dict(old[i].dat)
+                current[i].gen_report()
+
+    t1 = datetime(2014, 5, 10, 10, 35, 5, 217250).timestamp()
+    t2 = datetime(2014, 5, 20, 10, 35, 5, 217250).timestamp()
+    current[0].find_events()
 
     print('done')
-
 
 if __name__ == '__main__':
   main(sys.argv)
