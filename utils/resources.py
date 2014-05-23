@@ -484,7 +484,15 @@ class DataStore():
 
         return out
 
-##    def save_events():
+    def consolidate_all():
+        """
+        """
+        print('combine all formatted event data')
+
+    def organize_days():
+        """
+        """
+        print('organize events into days')
 
 class History(DataStore):
     """History subclass of DataStore

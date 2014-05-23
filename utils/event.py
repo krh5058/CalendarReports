@@ -36,11 +36,14 @@ class EventClass:
     tt_cmp = ('tt','tuple','timetuple')
     wn_cmp = ('w','wk','wn','week')
 
+    event_head = ('year','month','date','week','weekday','start','end','duration','summary')
+
     # Class attributes, redefined at instatiation
     event = None
 
     def __init__(self,event):
         self.event = event
+        self.fmt()
 
     def validate(event):
         """
@@ -199,9 +202,15 @@ class EventClass:
         else:
             print("EventClass (duration): Placeholder")
 
-##class GroupedEventClass(EventClass):
-##
-##    def __init__(self):
-##        for event in self.all_events:
-##            print(event.start_s)
-##            print(event.end_s)
+    def fmt(self):
+        """ Format event according to event_head"""
+        # Year, month, date, week number, weekday are based on start time.  Assuming no overnight events
+        y, m, d = self.get_start('tt')[0:3]
+        wn = self.get_start('wn')
+        wd = self.get_start('tt')[6]
+        self.formatted_event_tuple = (y,m,d,wn,wd,self.get_start(),self.get_end(),self.duration('h'),self.event.get('summary',''))
+
+class DayClass(EventClass):
+
+    def __init__(self,*events):
+        print('consolidate events')
