@@ -23,10 +23,11 @@ from oauth2client import client
 from oauth2client import tools
 from inspect import getmembers,ismethod
 from datetime import timedelta
+##import gc
 import os
 import re
 import json
-from utils.event import EventClass
+from utils.event import EventClass, DayClass, WeekClass
 
 class Configure:
     """Base configuration class
@@ -341,7 +342,7 @@ class Configure:
 
 def set_timestamp_args(f):
     def wrapper(obj,**kwargs):
-        args = {'start':obj.reports['START'],'end':obj.reports['END']} ## Default
+        args = {'start':obj.reports['FIRST'],'end':obj.reports['LAST']} ## Default
         if kwargs:
             for k,v in kwargs.items():
                 if k in args.keys(): ## If valid keyword
@@ -375,10 +376,11 @@ class DataStore():
 
         # Instance Variables
         self.reports = {
+                    'TYPE':None,
                     'COUNT':None,
-                    'START':None,
-                    'END':None,
-                    'RANGE':None,
+                    'FIRST':None,
+                    'LAST':None,
+                    'SPAN':None,
                     'REQUESTFROM':None
                 }
         self.dat = {}
@@ -420,9 +422,10 @@ class DataStore():
         """
         l = list(self.dat.keys())
         self.reports['COUNT'] = len(l)
-        self.reports['START'] = min(l)
-        self.reports['END'] = max(l)
-        self.reports['RANGE'] = max(l) - min(l)
+        self.reports['FIRST'] = min(l)
+        self.reports['TYPE'] = type(self.dat[min(l)]) ## Use first as exemplar
+        self.reports['LAST'] = max(l)
+        self.reports['SPAN'] = max(l) - min(l)
         reqfrom_t = self.dat[max(l)].get_end() + 1
         self.reports['REQUESTFROM'] = EventClass.timestamp_to_datestring(reqfrom_t)
 
@@ -484,15 +487,87 @@ class DataStore():
 
         return out
 
-    def consolidate_all():
+    def to_days(self):
+        """ Organize events into days
+        Consolidates events by day, and creates a DayClass
+        Replaces self.dat instance attribute, from EventClass to DayClass
+        Keys are timestamps from get_start(), start of first event of the day
         """
-        """
-        print('combine all formatted event data')
 
-    def organize_days():
+        if self.reports['TYPE'] is EventClass:
+
+            days = {}
+            temp = []
+            _current = (0,0,0)
+            for k in sorted(list(self.dat.keys())):
+                day = self.dat[k].formatted_data_tuple[0:3] ## EventClass
+                if not _current == day:
+    ##                print('Length of temp:',len(temp))
+                    _current = day
+    ##                print(_current[1],_current[2],_current[0])
+                    if temp:
+                        dayObj = DayClass(*temp)
+                        days[dayObj.get_start()] = dayObj
+                        del temp[:] ## Clear list
+    ##                gc.collect() ## Clear unreferenced memory
+                temp.append(self.dat.pop(k))
+
+            # Last DayClass instance
+            if temp:
+                dayObj = DayClass(*temp)
+                days[dayObj.get_start()] = dayObj
+                del temp[:] ## Clear list
+
+            self.add_to_dat_dict(days)
+            self.gen_report()
+
+        elif self.reports['TYPE'] is WeekClass:
+
+            print('Convert to days from week')
+##            days = {}
+##            temp = []
+##            _current = (0,0,0)
+##            for k in sorted(list(self.dat.keys())):
+##                day = self.dat[k].formatted_data_tuple[0:3] ## EventClass
+##                if not _current == day:
+##    ##                print('Length of temp:',len(temp))
+##                    _current = day
+##    ##                print(_current[1],_current[2],_current[0])
+##                    if temp:
+##                        dayObj = DayClass(*temp)
+##                        days[dayObj.get_start()] = dayObj
+##                        del temp[:] ## Clear list
+##    ##                gc.collect() ## Clear unreferenced memory
+##                temp.append(self.dat.pop(k))
+##
+##            # Last DayClass instance
+##            if temp:
+##                dayObj = DayClass(*temp)
+##                days[dayObj.get_start()] = dayObj
+##                del temp[:] ## Clear list
+##
+##            self.add_to_dat_dict(days)
+##            self.gen_report()
+
+        else:
+            raise Exception('DataStore (to_days) -- Incorrect usage.  Expected EventClass or WeekClass data type.')
+
+    def to_events(self):
+        """ Organize days into events
+        Unpack days into events, and creating one or more EventClasses
+        Replaces self.dat instance attribute, from DayClass to EventClass
+        Keys are timestamps from get_start(), start of event
         """
-        """
-        print('organize events into days')
+
+        if self.reports['TYPE'] is not DayClass:
+            raise Exception('DataStore (to_events) -- Incorrect usage.  Expected DayClass data type.')
+
+        temp = {}
+        for k in sorted(list(self.dat.keys())):
+            dayObj = self.dat.pop(k)
+            temp.update(dayObj.unpack_events())
+        self.add_to_dat_dict(temp)
+        self.gen_report()
 
 class History(DataStore):
     """History subclass of DataStore
@@ -526,8 +601,6 @@ class History(DataStore):
             self.gen_report()
 
         return result
-
-
 
 ##    # Search SLEIC json
 ##    def _get_event_ref(pi=None,project=None):

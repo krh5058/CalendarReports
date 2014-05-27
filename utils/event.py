@@ -36,13 +36,13 @@ class EventClass:
     tt_cmp = ('tt','tuple','timetuple')
     wn_cmp = ('w','wk','wn','week')
 
-    event_head = ('year','month','date','week','weekday','start','end','duration','summary')
+    fmt_head = ('year','month','date','week','weekday','start','end','duration','summary')
 
-    # Class attributes, redefined at instatiation
-    event = None
+##    # Class attributes, redefined at instatiation
+##    event = None
 
     def __init__(self,event):
-        self.event = event
+        self.__event = event
         self.fmt()
 
     def validate(event):
@@ -155,10 +155,45 @@ class EventClass:
         """
         return datetime.today()
 
+    def fmt(self):
+        """ Format class data according to class attribute, fmt_head"""
+        # Year, month, date, week number, weekday are based on start time.  Assuming no overnight events
+        l = []
+        for head in self.fmt_head:
+            # TODO Need to make abstracts and error handling
+            if head=='year':
+                l.append(self.get_start('tt')[0])
+            elif head=='month':
+                l.append(self.get_start('tt')[1])
+            elif head=='date':
+                l.append(self.get_start('tt')[2])
+            elif head=='week':
+                l.append(self.get_start('wn'))
+            elif head=='weekday':
+                l.append(self.get_start('tt')[6])
+            elif head=='start':
+                l.append(self.get_start())
+            elif head=='end':
+                l.append(self.get_end())
+            elif head=='duration':
+                l.append(self.duration('h'))
+            elif head=='count':
+                l.append(self.count())
+            elif head=='startdate':
+                print('startdate')
+            elif head=='enddate':
+                print('enddate')
+            elif head=='summary': ## EventClass
+                l.append(self.__event.get('summary',''))
+            else:
+                raise Exception('EventClass (fmt) -- Unrecognized header type. {0}.'.format(head))
+
+            self.formatted_data_tuple = tuple(l)
+
     def get_start(self,formatting='s'):
         """ Timestamp format/conversion from event start date string"""
 
-        time_s = EventClass.datestring_to_timestamp(self.event.get('start').get('dateTime'))
+        time_s = EventClass.datestring_to_timestamp(self.__event.get('start').get('dateTime'))
 
         if formatting.lower() in EventClass.s_cmp:
             format_out = time_s
@@ -173,7 +208,64 @@ class EventClass:
     def get_end(self,formatting='s'):
         """ Timestamp format/conversion from event end date string"""
 
-        time_s = EventClass.datestring_to_timestamp(self.event.get('end').get('dateTime'))
+        time_s = EventClass.datestring_to_timestamp(self.__event.get('end').get('dateTime'))
+
+        if formatting.lower() in EventClass.s_cmp:
+            format_out = time_s
+        elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp + EventClass.wn_cmp:
+            format_out = EventClass.timestamp_format(time_s,formatting)
+        else:
+            raise FormattingError(
+                'EventClass (get_end): Unavailable formatting argument, "' + formatting + '".')
+
+        return format_out
+
+    def duration(self,formatting='s'):
+        """ Duration calculation of event"""
+
+        if isinstance(self,EventClass):
+            dur = (self.get_end() - self.get_start())
+
+            ## Conversion Only
+            if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp + EventClass.d_cmp:
+                format_out = EventClass.timestamp_conversion(dur,formatting)
+            else:
+                raise FormattingError(
+                    'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')
+
+            return format_out
+        else:
+            raise Exception('EventClass (duration) -- method overwrite required!')
+
+class DayClass(EventClass):
+
+    fmt_head = ('year','month','date','week','weekday','start','end','duration','count')
+
+    def __init__(self,*events):
+        self.__event = []
+        for eventObj in events:
+            # Valide event
+            # Assumed constructor only aggregates upwards (EventClass > Dayclass)
+            # Using name mangled, _EventClass__event
+            # Assuming type check occured before passing arguments to constructor
+            if EventClass.validate(eventObj._EventClass__event):
+                self.__event.append(eventObj)
+        self.fmt()
+
+    def unpack_events(self):
+        """
+        """
+        out = {}
+        for eventObj in self.__event:
+            out[eventObj.get_start()] = eventObj ## Reconstruct dictionary
+
+        return out
+
+    def get_start(self,formatting='s'):
+        """ Timestamp format/conversion from earliest event"""
+
+        time_s = min([_event.get_start() for _event in self.__event])
+##        time_s = EventClass.datestring_to_timestamp(self.event.get('start').get('dateTime'))
 
         if formatting.lower() in EventClass.s_cmp:
             format_out = time_s
@@ -185,32 +277,74 @@ class EventClass:
 
         return format_out
 
-    def duration(self,formatting='s'):
-        """ Duration calculation of event"""
+    def get_end(self,formatting='s'):
+        """ Timestamp format/conversion from event end date string"""
 
-        if isinstance(self,EventClass):
-            dur_test = (self.get_end() - self.get_start())
+        time_s = max([_event.get_end() for _event in self.__event])
+##        time_s = EventClass.datestring_to_timestamp(self.event.get('end').get('dateTime'))
 
-            ## Conversion Only
-            if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp + EventClass.d_cmp:
-                format_out = EventClass.timestamp_conversion(dur_test,formatting)
-            else:
-                raise FormattingError(
-                    'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')
-
-            return format_out
+        if formatting.lower() in EventClass.s_cmp:
+            format_out = time_s
+        elif formatting.lower() in EventClass.dt_cmp + EventClass.tt_cmp + EventClass.wn_cmp:
+            format_out = EventClass.timestamp_format(time_s,formatting)
         else:
-            print("EventClass (duration): Placeholder")
+            raise FormattingError(
+                'EventClass (get_end): Unavailable formatting argument, "' + formatting + '".')
 
-    def fmt(self):
-        """ Format event according to event_head"""
-        # Year, month, date, week number, weekday are based on start time.  Assuming no overnight events
-        y, m, d = self.get_start('tt')[0:3]
-        wn = self.get_start('wn')
-        wd = self.get_start('tt')[6]
-        self.formatted_event_tuple = (y,m,d,wn,wd,self.get_start(),self.get_end(),self.duration('h'),self.event.get('summary',''))
+        return format_out
 
-class DayClass(EventClass):
+    def duration(self,formatting='s'):
+        """ Duration calculation of day
+        Cumulative duration of all events.
+        Overlapping events are merged.
+        """
+        end = 0
+        dur = 0
+        for i in range(0,len(self.__event)):
+            if self.__event[i].get_start() < end: # If overlapping
+                dur = dur + (self.__event[i].get_end() - end)
+            else:
+                dur = dur + (self.__event[i].get_end() - self.__event[i].get_start())
+
+            end = self.__event[i].get_end()
+
+        ## Conversion Only
+        if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp + EventClass.d_cmp:
+            format_out = EventClass.timestamp_conversion(dur,formatting)
+        else:
+            raise FormattingError(
+                'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')
+
+        return format_out
+
+    def span(self,formatting='s'):
+        """ Span between start and end timestamps for the day"""
+
+        dur = (self.get_end() - self.get_start())
+
+        ## Conversion Only
+        if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp + EventClass.d_cmp:
+            format_out = EventClass.timestamp_conversion(dur,formatting)
+        else:
+            raise FormattingError(
+                'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')
+
+        return format_out
+
+    def count(self):
+        """ Number of events in the day
+        """
+
+        return len(self.__event)
+
+class WeekClass(DayClass):
+
+    fmt_head = ('year','month','week','startdate','enddate','duration','count')
 
     def __init__(self,*events):
-        print('consolidate events')
+        print('WeekClass')
+##        self.__event = []
+##        for eventObj in events:
+##            if EventClass.validate(eventObj.__event): ## Valide event
+##                self.event.append(eventObj)
+##        self.fmt()

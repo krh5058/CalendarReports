@@ -114,9 +114,15 @@ def main(argv):
                 current[i].add_to_dat_dict(old[i].dat)
                 current[i].gen_report()
 
-    t1 = datetime(2014, 5, 10, 10, 35, 5, 217250).timestamp()
-    t2 = datetime(2014, 5, 20, 10, 35, 5, 217250).timestamp()
-    current[0].find_events()
+##    t1 = datetime(2014, 5, 10, 10, 35, 5, 217250).timestamp()
+##    t2 = datetime(2014, 5, 20, 10, 35, 5, 217250).timestamp()
+##    current[0].find_events()
+
+    current[0].to_days()
+    current[1].to_days()
+
+    current[0].to_events()
+    current[1].to_events()
 
     print('done')
 
