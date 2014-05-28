@@ -177,14 +177,12 @@ class EventClass:
                 l.append(self.get_end())
             elif head=='duration':
                 l.append(self.duration('h'))
-            elif head=='count':
+            elif head=='count': ## DayClass
                 l.append(self.count())
-            elif head=='startdate':
-                print('startdate')
-            elif head=='enddate':
-                print('enddate')
             elif head=='summary': ## EventClass
                 l.append(self.__event.get('summary',''))
+            elif head=='span': ## DayClass
+                l.append(self.span())
             else:
                 raise Exception('EventClass (fmt) -- Unrecognized header type. {0}.'.format(head))
 
@@ -239,7 +237,7 @@ class EventClass:
 
 class DayClass(EventClass):
 
-    fmt_head = ('year','month','date','week','weekday','start','end','duration','count')
+    fmt_head = ('year','month','date','week','weekday','start','end','duration','count','span')
 
     def __init__(self,*events):
         self.__event = []
@@ -318,18 +316,23 @@ class DayClass(EventClass):
         return format_out
 
     def span(self,formatting='s'):
-        """ Span between start and end timestamps for the day"""
+        """ Span of start and end timestamps for each event
+        Returns tuple containing (start,end) tuple pairs in order of events
+        """
+        format_out = []
 
-        dur = (self.get_end() - self.get_start())
+        for _event in self.__event:
 
-        ## Conversion Only
-        if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp + EventClass.d_cmp:
-            format_out = EventClass.timestamp_conversion(dur,formatting)
-        else:
-            raise FormattingError(
-                'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')
+            ## Conversion Only
+            if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp + EventClass.d_cmp:
+                start = EventClass.timestamp_conversion(_event.get_start(),formatting)
+                end = EventClass.timestamp_conversion(_event.get_end(),formatting)
+                format_out.append((start,end))
+            else:
+                raise FormattingError(
+                    'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')
 
-        return format_out
+        return tuple(format_out)
 
     def count(self):
         """ Number of events in the day

@@ -380,7 +380,7 @@ class DataStore():
                     'COUNT':None,
                     'FIRST':None,
                     'LAST':None,
-                    'SPAN':None,
+                    'RANGE':None,
                     'REQUESTFROM':None
                 }
         self.dat = {}
@@ -425,7 +425,7 @@ class DataStore():
         self.reports['FIRST'] = min(l)
         self.reports['TYPE'] = type(self.dat[min(l)]) ## Use first as exemplar
         self.reports['LAST'] = max(l)
-        self.reports['SPAN'] = max(l) - min(l)
+        self.reports['RANGE'] = max(l) - min(l)
         reqfrom_t = self.dat[max(l)].get_end() + 1
         self.reports['REQUESTFROM'] = EventClass.timestamp_to_datestring(reqfrom_t)
 
