@@ -86,7 +86,7 @@ def main(argv):
         old = []
         for source in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
             fullpath = Configure._Configure__joinpath(history,source['name'])
-            old.append(History(debug,source=fullpath))
+            old.append(History(debug,fullpath,source['name']))
 
         # Set/save new timeMin for available history
         # Get calendar order in config
@@ -109,7 +109,7 @@ def main(argv):
         # Request events, in order, and update with history if they exist
         current = []
         for i in range(0,len(configure.log['REQUEST_ORDER'])):
-            current.append(DataStore(debug,source=services[i]))
+            current.append(DataStore(debug,services[i],configure.log['REQUEST_ORDER'][i]))
             if 'old' in locals(): ## If history exists
                 current[i].add_to_dat_dict(old[i].dat)
                 current[i].gen_report()
@@ -121,8 +121,11 @@ def main(argv):
     current[0].to_days()
     current[1].to_days()
 
-    current[0].to_events()
-    current[1].to_events()
+##    current[0].to_events()
+##    current[1].to_events()
+
+    # Store current data and configuration to cache
+    configure.save_to_cache(current)
 
     print('done')
 

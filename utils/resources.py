@@ -24,6 +24,7 @@ from oauth2client import tools
 from inspect import getmembers,ismethod
 from datetime import timedelta
 ##import gc
+import pickle
 import os
 import re
 import json
@@ -71,7 +72,9 @@ class Configure:
         'REQUEST_ORDER':[]
         }
 
-    directories = {'CONFIG':None,
+    directories = {
+                    'CACHE':None,
+                    'CONFIG':None,
                     'DEV':None,
                     'HISTORY':None,
                     'LOG':None,
@@ -251,6 +254,24 @@ class Configure:
 
         return result
 
+    def save_to_cache(self,data):
+        """Save DataStore and Configure classes to cache directory
+        """
+        cachepath = Configure._Configure__joinpath(self.directories['CACHE'],str(self.log['TIME'].timestamp()))
+##        if not os.path.exists(cachepath):
+        os.mkdir(cachepath)
+        pickle.dump(data,open(Configure._Configure__joinpath(cachepath,'data.p'),'wb'))
+        pickle.dump(Configure,open(Configure._Configure__joinpath(cachepath,'config.p'),'wb'))
+
+    def load_cache(self):
+        """Load cache data
+        """
+        cachepath = Configure._Configure__joinpath(self.directories['CACHE'],str(self.log['TIME'].timestamp()))
+        if os.path.exists(cachepath):
+            current = pickle.load(open(Configure._Configure__joinpath(cachepath,'data.p'),'rb'))
+            configure = pickle.load(open(Configure._Configure__joinpath(cachepath,'config.p'),'rb'))
+            return current, configure
+
     def gen_credentials(self):
         """Generate credentials with Google OAuth2.0 server,
             or use authentication tokens
@@ -366,16 +387,21 @@ class DataStore():
     read = True
     write = False
 
-    def __init__(self,debug,source=None):
+    def __init__(self,debug,source,name):
         """
         Initialize DataStore class type.
         Arguments:
             'debug': True/False, to display debug text
-            source: Any type of source for get_events to pull event data from
+            source: Source for get_events to pull event data from
+                Service instance for GET requests, or Path for loading JSON
         """
 
         # Instance Variables
+
+        self.source = source
+
         self.reports = {
+                    'NAME':name,
                     'TYPE':None,
                     'COUNT':None,
                     'FIRST':None,
@@ -384,10 +410,6 @@ class DataStore():
                     'REQUESTFROM':None
                 }
         self.dat = {}
-        if source is not None:
-            self.source = source
-        else:
-            raise Exception('DataStore (__init__) -- Source empty!')
 
         # Read events
         if self.read:
@@ -473,6 +495,7 @@ class DataStore():
             raise Exception('DataStore (add_to_dat_dict) -- Argument is not dictionary instance!')
 
         self.dat.update(d)
+        self.gen_report()
 
     @set_timestamp_args
     def find_events(self,start,end):
@@ -519,7 +542,6 @@ class DataStore():
                 del temp[:] ## Clear list
 
             self.add_to_dat_dict(days)
-            self.gen_report()
 
         elif self.reports['TYPE'] is WeekClass:
 
@@ -567,7 +589,6 @@ class DataStore():
             dayObj = self.dat.pop(k)
             temp.update(dayObj.unpack_events())
         self.add_to_dat_dict(temp)
-        self.gen_report()
 
 class History(DataStore):
     """History subclass of DataStore
