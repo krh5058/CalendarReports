@@ -67,9 +67,49 @@ parser = argparse.ArgumentParser(
 # File path
 filename = os.path.dirname(__file__)
 
-# Flags for cache read and write
-use_cache = True
-write_cache = False
+### Flags for cache read and write
+##use_cache = True
+##write_cache = False
+
+# Create configuration
+configure = Configure(debug,path=filename)
+
+# Read event history and update config
+# TODO, deprecate JSON file storage
+def read_history():
+    history = configure._get_path('HISTORY')
+    old = []
+    for name in configure.log['REQUEST_ORDER']:
+        fullpath = Configure._Configure__joinpath(history,name)
+        old.append(History(debug,fullpath,name))
+
+    # Set/save new timeMin for available history
+    # Get calendar order in config
+    for calendar in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
+        for r in old:
+            if os.path.split(r.source)[1]==calendar['name']:
+                print('Updating request parameter, {0}, from {1} to {2}'.format('timeMin',calendar['timeMin'],r.reports['REQUESTFROM']))
+                calendar['timeMin'] = r.reports['REQUESTFROM']
+
+    if configure.save_request_config():
+        print('JSON request parameters saved.')
+    else:
+        print('Saving JSON request parameters failed.')
+
+    return old
+
+# Request events, in order, and update with history if they exist
+def request_events(old=None):
+    # Generate service requests, same as 'REQUEST_ORDER' order
+    services = configure.gen_service_requests(weeksAhead=0)
+
+    current = []
+    for i in range(0,len(configure.log['REQUEST_ORDER'])):
+        current.append(DataStore(debug,services[i],configure.log['REQUEST_ORDER'][i]))
+        if old: ## If history exists
+            current[i].add_to_dat_dict(old[i].dat)
+
+    return current
 
 # Main
 def main(argv):
@@ -77,42 +117,17 @@ def main(argv):
 ##    # Parse the command-line flags.
 ##    flags = parser.parse_args(argv[1:])
 
-    # Create configuration
-    configure = Configure(debug,path=filename)
-
     # Read event history
     if History.read:
-        history = configure._get_path('HISTORY')
-        old = []
-        for source in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
-            fullpath = Configure._Configure__joinpath(history,source['name'])
-            old.append(History(debug,fullpath,source['name']))
-
-        # Set/save new timeMin for available history
-        # Get calendar order in config
-        for calendar in configure.config['REQUEST']['PARAMETERS']['CALENDARS']:
-            for r in old:
-                if os.path.split(r.source)[1]==calendar['name']:
-                    print('Updating request parameter, {0}, from {1} to {2}'.format('timeMin',calendar['timeMin'],r.reports['REQUESTFROM']))
-                    calendar['timeMin'] = r.reports['REQUESTFROM']
-
-        if configure.save_request_config():
-            print('JSON request parameters saved.')
-        else:
-            print('Saving JSON request parameters failed.')
+        old = read_history() # TODO, deprecate JSON
 
     # Read new events and consolidate with history
     if DataStore.read:
-        # Generate service requests, same as 'REQUEST_ORDER' order
-        services = configure.gen_service_requests(weeksAhead=0)
-
-        # Request events, in order, and update with history if they exist
-        current = []
-        for i in range(0,len(configure.log['REQUEST_ORDER'])):
-            current.append(DataStore(debug,services[i],configure.log['REQUEST_ORDER'][i]))
-            if 'old' in locals(): ## If history exists
-                current[i].add_to_dat_dict(old[i].dat)
-                current[i].gen_report()
+        # Request events
+        if 'old' in locals():
+            current = request_events(old)
+        else:
+            current = request_events()
 
 ##    t1 = datetime(2014, 5, 10, 10, 35, 5, 217250).timestamp()
 ##    t2 = datetime(2014, 5, 20, 10, 35, 5, 217250).timestamp()

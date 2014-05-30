@@ -109,6 +109,7 @@ class Configure:
 
         self.reports['DEFINE_PATHS'] = self.define_paths()
         self.reports['LOAD_JSON_TO_CONFIG'] = self.load_json_to_config()
+        self.reports['RECORD_REQUEST_ORDER'] = self.record_request_order()
         self.reports['GEN_CREDENTIALS'] = self.gen_credentials()
         self.reports['CREATE_BASE_SERVICE'] = self.create_base_service()
 
@@ -232,8 +233,22 @@ class Configure:
 
         return result
 
+    def record_request_order(self):
+        """ Record order of requests from JSON config
+        """
+        result = True
+
+        try:
+            for __config in self.config['REQUEST']['PARAMETERS']['CALENDARS']:
+                self.log['REQUEST_ORDER'].append(__config['name'])
+        except:
+            result = False
+
+        return result
+
     def save_request_config(self):
         """Save changes to JSON config files
+        Rewrites calendars.json and sleic_ref.json
         """
         result = True
 
@@ -257,20 +272,34 @@ class Configure:
     def save_to_cache(self,data):
         """Save DataStore and Configure classes to cache directory
         """
-        cachepath = Configure._Configure__joinpath(self.directories['CACHE'],str(self.log['TIME'].timestamp()))
-##        if not os.path.exists(cachepath):
-        os.mkdir(cachepath)
-        pickle.dump(data,open(Configure._Configure__joinpath(cachepath,'data.p'),'wb'))
-        pickle.dump(Configure,open(Configure._Configure__joinpath(cachepath,'config.p'),'wb'))
+        result = True
+
+        try:
+            cachepath = Configure._Configure__joinpath(self.directories['CACHE'],str(self.log['TIME'].timestamp()))
+    ##        if not os.path.exists(cachepath):
+            os.mkdir(cachepath)
+            pickle.dump(data,open(Configure._Configure__joinpath(cachepath,'data.p'),'wb'))
+            pickle.dump(Configure,open(Configure._Configure__joinpath(cachepath,'config.p'),'wb'))
+        except:
+            result = False
+
+        return result
 
     def load_cache(self):
         """Load cache data
         """
-        cachepath = Configure._Configure__joinpath(self.directories['CACHE'],str(self.log['TIME'].timestamp()))
-        if os.path.exists(cachepath):
-            current = pickle.load(open(Configure._Configure__joinpath(cachepath,'data.p'),'rb'))
-            configure = pickle.load(open(Configure._Configure__joinpath(cachepath,'config.p'),'rb'))
-            return current, configure
+        result = True
+
+        try:
+            cachepath = Configure._Configure__joinpath(self.directories['CACHE'],str(self.log['TIME'].timestamp())) # TODO Read most recent, no 'TIME' log
+            if os.path.exists(cachepath):
+                current = pickle.load(open(Configure._Configure__joinpath(cachepath,'data.p'),'rb'))
+                configure = pickle.load(open(Configure._Configure__joinpath(cachepath,'config.p'),'rb'))
+##                return current, configure
+        except:
+            result = False
+
+        return result
 
     def gen_credentials(self):
         """Generate credentials with Google OAuth2.0 server,
@@ -346,7 +375,6 @@ class Configure:
             # Iterate through services
             services = []
             for __config in self.config['REQUEST']['PARAMETERS']['CALENDARS']:
-                self.log['REQUEST_ORDER'].append(__config['name'])
                 __service = self.config['SERVICE']
                 services.append(__service.events().list(
                             calendarId=__config["calendarId"],
@@ -361,6 +389,7 @@ class Configure:
         else:
             print('Unsupported API type: {0}'.format(self.config['API']['type']))
 
+# TODO Comment this decorator
 def set_timestamp_args(f):
     def wrapper(obj,**kwargs):
         args = {'start':obj.reports['FIRST'],'end':obj.reports['LAST']} ## Default
