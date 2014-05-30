@@ -9,8 +9,5 @@
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
-def main():
-    pass
+__author__ = 'ken.r.hwang@gmail.com (Ken Hwang)'
 
-if __name__ == '__main__':
-    main()

@@ -38,7 +38,7 @@ by running:
 """
 
 # Skeleton imports
-import argparse
+##import argparse
 import httplib2
 import os
 import sys
@@ -58,11 +58,11 @@ import json
 # Developer parameters
 debug = True
 
-# Parser for command-line arguments.
-parser = argparse.ArgumentParser(
-    description=__doc__,
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    parents=[tools.argparser])
+### Parser for command-line arguments.
+##parser = argparse.ArgumentParser(
+##    description=__doc__,
+##    formatter_class=argparse.RawDescriptionHelpFormatter,
+##    parents=[tools.argparser])
 
 # File path
 filename = os.path.dirname(__file__)
@@ -129,18 +129,19 @@ def main(argv):
         else:
             current = request_events()
 
-##    t1 = datetime(2014, 5, 10, 10, 35, 5, 217250).timestamp()
-##    t2 = datetime(2014, 5, 20, 10, 35, 5, 217250).timestamp()
-##    current[0].find_events()
+        ##    t1 = datetime(2014, 5, 10, 10, 35, 5, 217250).timestamp()
+        ##    t2 = datetime(2014, 5, 20, 10, 35, 5, 217250).timestamp()
+        ##    current[0].find_events()
 
-    current[0].to_days()
-    current[1].to_days()
+        current[0].to_days()
+        current[1].to_days()
 
-##    current[0].to_events()
-##    current[1].to_events()
+        ##    current[0].to_events()
+        ##    current[1].to_events()
 
-    # Store current data and configuration to cache
-    configure.save_to_cache(current)
+        # Store current data and configuration to cache
+        # TODO, Cache management
+        configure.save_to_cache(current)
 
     print('done')
 

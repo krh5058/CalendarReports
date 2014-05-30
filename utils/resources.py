@@ -28,7 +28,7 @@ import pickle
 import os
 import re
 import json
-from utils.event import EventClass, DayClass, WeekClass
+from utils.event import EventClass, DayClass
 
 class Configure:
     """Base configuration class
@@ -73,7 +73,7 @@ class Configure:
         }
 
     directories = {
-                    'CACHE':None,
+                    'APP-CACHE':None,
                     'CONFIG':None,
                     'DEV':None,
                     'HISTORY':None,
@@ -110,6 +110,8 @@ class Configure:
         self.reports['DEFINE_PATHS'] = self.define_paths()
         self.reports['LOAD_JSON_TO_CONFIG'] = self.load_json_to_config()
         self.reports['RECORD_REQUEST_ORDER'] = self.record_request_order()
+
+        # TODO, partition routine below
         self.reports['GEN_CREDENTIALS'] = self.gen_credentials()
         self.reports['CREATE_BASE_SERVICE'] = self.create_base_service()
 
@@ -252,6 +254,8 @@ class Configure:
         """
         result = True
 
+        # TODO, internal debug text
+
         # For each config entry
         for k in self.config['REQUEST'].keys():
             # Use dictionary keys to obtain file paths from equivalent keys in 'configpaths'
@@ -275,7 +279,7 @@ class Configure:
         result = True
 
         try:
-            cachepath = Configure._Configure__joinpath(self.directories['CACHE'],str(self.log['TIME'].timestamp()))
+            cachepath = Configure._Configure__joinpath(self.directories['APP-CACHE'],str(self.log['TIME'].timestamp()))
     ##        if not os.path.exists(cachepath):
             os.mkdir(cachepath)
             pickle.dump(data,open(Configure._Configure__joinpath(cachepath,'data.p'),'wb'))
@@ -285,21 +289,15 @@ class Configure:
 
         return result
 
-    def load_cache(self):
-        """Load cache data
-        """
-        result = True
-
-        try:
-            cachepath = Configure._Configure__joinpath(self.directories['CACHE'],str(self.log['TIME'].timestamp())) # TODO Read most recent, no 'TIME' log
-            if os.path.exists(cachepath):
-                current = pickle.load(open(Configure._Configure__joinpath(cachepath,'data.p'),'rb'))
-                configure = pickle.load(open(Configure._Configure__joinpath(cachepath,'config.p'),'rb'))
-##                return current, configure
-        except:
-            result = False
-
-        return result
+##    def load_cache(self):
+##        """Load cache data
+##        """
+##
+##        cachepath = Configure._Configure__joinpath(self.directories['APP-CACHE'],str(self.log['TIME'].timestamp())) # TODO Read most recent, no 'TIME' log
+##        if os.path.exists(cachepath):
+##            current = pickle.load(open(Configure._Configure__joinpath(cachepath,'data.p'),'rb'))
+####                configure = pickle.load(open(Configure._Configure__joinpath(cachepath,'config.p'),'rb'))
+##            return current
 
     def gen_credentials(self):
         """Generate credentials with Google OAuth2.0 server,
@@ -636,6 +634,7 @@ class History(DataStore):
         try:
             listing = os.listdir(self.source)
             for filename in listing:
+                # TODO, deprecate JSON
                 event_json = open(os.path.join(self.source + os.sep + filename))
                 time_s = float(os.path.splitext(filename)[0]) ## Filename (timestamp) to float
                 json_data = json.load(event_json)

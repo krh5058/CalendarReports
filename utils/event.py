@@ -181,6 +181,7 @@ class EventClass:
                 l.append(self.count())
             elif head=='summary': ## EventClass
                 l.append(self.__event.get('summary',''))
+                # TODO, reference parsing, add to DayClass
             elif head=='span': ## DayClass
                 l.append(self.span())
             else:
@@ -339,15 +340,3 @@ class DayClass(EventClass):
         """
 
         return len(self.__event)
-
-class WeekClass(DayClass):
-
-    fmt_head = ('year','month','week','startdate','enddate','duration','count')
-
-    def __init__(self,*events):
-        print('WeekClass')
-##        self.__event = []
-##        for eventObj in events:
-##            if EventClass.validate(eventObj.__event): ## Valide event
-##                self.event.append(eventObj)
-##        self.fmt()

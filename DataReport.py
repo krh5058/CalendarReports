@@ -43,7 +43,7 @@ def get_data():
     if listing:
         latest = max(listing) ## Latest date
         if debug:
-            print('Using latest cached data, {0}'.format(latest))
+            print('Using latest cached data, {0}.'.format(latest))
         return pickle.load(open(Configure._Configure__joinpath(cachepath, latest + os.sep + 'data.p'),'rb'))
     else: ## If no cache, recursion
         if debug:
