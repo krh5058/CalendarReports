@@ -297,15 +297,17 @@ class DayClass(EventClass):
         Cumulative duration of all events.
         Overlapping events are merged.
         """
+
         end = 0
         dur = 0
         for i in range(0,len(self.__event)):
-            if self.__event[i].get_start() < end: # If overlapping
-                dur = dur + (self.__event[i].get_end() - end)
-            else:
+            if self.__event[i].get_start() < end: # If at least partially overlapping
+                if not self.__event[i].get_end() < end: # Only if not entirely overlapping
+                    dur = dur + (self.__event[i].get_end() - end)
+                    end = self.__event[i].get_end()
+            else: # If no overlaps
                 dur = dur + (self.__event[i].get_end() - self.__event[i].get_start())
-
-            end = self.__event[i].get_end()
+                end = self.__event[i].get_end()
 
         ## Conversion Only
         if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp + EventClass.d_cmp:
@@ -317,18 +319,30 @@ class DayClass(EventClass):
         return format_out
 
     def span(self,formatting='s'):
-        """ Span of start and end timestamps for each event
-        Returns tuple containing (start,end) tuple pairs in order of events
+        """ Span of start and end timestamps across day (indempotent)
+        Assumes events are listed in order [see utils.resources.DataStore.to_days()]
+        Consolidates overlapping events into spans, creates starting and ending timestamps of event spans
+        Returns tuple containing (start,end) tuple pairs of timestamp spans
         """
-        format_out = []
-
+        timestamps = []
+        end = 0
         for _event in self.__event:
+            if _event.get_start() <= end: # If at least partially overlapping (or start equals prior end)
+                if not _event.get_end() <= end: # Only if not entirely overlapping (or end equals prior end)
+                    temp = timestamps.pop() # Remove last entry
+                    timestamps.append((temp[0],_event.get_end())) # Use last entry, with modified end timestamp
+                    end = _event.get_end() # Set new timestamp
+            else: # If no overlaps
+                timestamps.append((_event.get_start(),_event.get_end()))
+                end = _event.get_end()
 
+        format_out = []
+        for s,e in timestamps:
             ## Conversion Only
             if formatting.lower() in EventClass.s_cmp + EventClass.m_cmp + EventClass.h_cmp + EventClass.d_cmp:
-                start = EventClass.timestamp_conversion(_event.get_start(),formatting)
-                end = EventClass.timestamp_conversion(_event.get_end(),formatting)
-                format_out.append((start,end))
+                _start = EventClass.timestamp_conversion(s,formatting)
+                _end = EventClass.timestamp_conversion(e,formatting)
+                format_out.append((_start,_end))
             else:
                 raise FormattingError(
                     'EventClass (duration): Unavailable formatting argument, "' + formatting + '".')

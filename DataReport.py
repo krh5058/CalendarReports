@@ -54,6 +54,14 @@ def get_data():
 def main():
 
     current = get_data()
+
+    cache_order = [store.reports['NAME'] for store in current]
+
+    mrislots = current[cache_order.index('mrislots')] ##.dat[1401220800.0] # MRI Slots
+    scanop = current[cache_order.index('scanop')] ##.dat[1401206400.0] # Scanner op
+
+    analysis.compare_against(mrislots,scanop)
+
     print('done')
 ##    configure.load_cache()
 

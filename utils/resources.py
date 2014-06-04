@@ -21,8 +21,8 @@ from apiclient import discovery
 from oauth2client import file
 from oauth2client import client
 from oauth2client import tools
-from inspect import getmembers,ismethod
-from datetime import timedelta
+##from inspect import getmembers,ismethod
+from datetime import timedelta, datetime
 ##import gc
 import pickle
 import os
@@ -557,7 +557,7 @@ class DataStore():
     ##                print(_current[1],_current[2],_current[0])
                     if temp:
                         dayObj = DayClass(*temp)
-                        days[dayObj.get_start()] = dayObj
+                        days[datetime(*dayObj.formatted_data_tuple[0:3]).timestamp()] = dayObj ## Key is timestamp for start of day
                         del temp[:] ## Clear list
     ##                gc.collect() ## Clear unreferenced memory
                 temp.append(self.dat.pop(k))
@@ -565,14 +565,14 @@ class DataStore():
             # Last DayClass instance
             if temp:
                 dayObj = DayClass(*temp)
-                days[dayObj.get_start()] = dayObj
+                days[datetime(*dayObj.formatted_data_tuple[0:3]).timestamp()] = dayObj
                 del temp[:] ## Clear list
 
             self.add_to_dat_dict(days)
-
-        elif self.reports['TYPE'] is WeekClass:
-
-            print('Convert to days from week')
+##
+##        elif self.reports['TYPE'] is WeekClass:
+##
+##            print('Convert to days from week')
 ##            days = {}
 ##            temp = []
 ##            _current = (0,0,0)
