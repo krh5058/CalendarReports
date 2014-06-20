@@ -36,16 +36,38 @@ def compare_against(data1,data2,**flags):
 
     for k in sorted(list(data2.dat.keys())): # Cycle by data2 (e.g. 'scanop')
         if k in list(data1.dat.keys()): # If timestamp of day is also present in data1 (e.g. 'mrislots')
-            print('mrislots-----')
-            for _event in data1.dat[k].formatted_data_tuple[span]:
-                print(DayClass.timestamp_to_datestring(_event[0]))
-                print(DayClass.timestamp_to_datestring(_event[1]))
-            print('scanop-----')
-            for _event in data2.dat[k].formatted_data_tuple[span]:
-                print(DayClass.timestamp_to_datestring(_event[0]))
-                print(DayClass.timestamp_to_datestring(_event[1]))
-        overlap(data1.dat[k].formatted_data_tuple[span],data2.dat[k].formatted_data_tuple[span])
 
+            print("Spans...")
+            print('mrislots (a)-----')
+            span1 = data1.dat[k].formatted_data_tuple[span]
+            for _event in data1.dat[k].formatted_data_tuple[span]:
+                print("Start:",DayClass.timestamp_to_datestring(_event[0]),", End:",DayClass.timestamp_to_datestring(_event[1]))
+
+            print('scanop (b)-----')
+            span2 = data2.dat[k].formatted_data_tuple[span]
+            for _event in data2.dat[k].formatted_data_tuple[span]:
+                print("Start:",DayClass.timestamp_to_datestring(_event[0]),", End:",DayClass.timestamp_to_datestring(_event[1]))
+
+            excess1, excess2, overlap = span_compare(data1.dat[k].formatted_data_tuple[span],data2.dat[k].formatted_data_tuple[span])
+
+            print()
+            print("Calculations...")
+            print('mrislots excess (a)----')
+            for _excess in excess1:
+                print("Start:",DayClass.timestamp_to_datestring(_excess[0]),", End:",DayClass.timestamp_to_datestring(_excess[1]))
+                print("Duration:",(_excess[1] - _excess[0])/60/60)
+
+            print('scanop excess (b)----')
+            for _excess in excess2:
+                print("Start:",DayClass.timestamp_to_datestring(_excess[0]),", End:",DayClass.timestamp_to_datestring(_excess[1]))
+                print("Duration:",(_excess[1] - _excess[0])/60/60)
+
+            print('overlap (c)----')
+            for _overlap in overlap:
+                print("Start:",DayClass.timestamp_to_datestring(_overlap[0]),", End:",DayClass.timestamp_to_datestring(_overlap[1]))
+                print("Duration:",(_overlap[1] - _overlap[0])/60/60)
+
+            print('debug')
 ##
 ##    for param,v in COMPARE_PARAMETER_DEFALT_VALUE:
 ##        if v:
@@ -73,8 +95,8 @@ def compare_against(data1,data2,**flags):
 ##
 ##            else:
 ##                print('none')
-def overlap(span1,span2):
-    """ Compare overlap between two spans of day timestamps
+def span_compare(span1,span2):
+    """ Compare between two spans of day timestamps
     Returns duration, percentage, non-overlap for span1, and non-overlap for span2
     Overlap rules:
         1. Complete non-overlap, equates to out-of-range scheduling: Added to span1 entity
@@ -86,25 +108,130 @@ def overlap(span1,span2):
     duration = 0
     non_overlap1 = 0
     non_overlap2 = 0
+
+    timestamps_a = []
+    timestamps_b = []
+    timestamps_c = []
+
+    a = ()
+    for _event1 in span1:
+        a += _event1
+    a = sorted(a)
+
+    b = ()
     for _event2 in span2:
-        for _event1 in span1:
-            if _event2[1] <= _event1[0]:
-                temp = DayClass.timestamp_conversion(_event1[1] - _event1[0],'h')
-                non_overlap1 += temp
-                print("No overlap.",temp,"hours added to event 1.")
+        b += _event2
+    b = sorted(b)
+
+    t = sorted(set(a+b))
+
+    t0 = t1 = None
+    id0 = id1 = None
+    for i in range(0,len(t)-1):
+
+        if t0 is None:
+            t0 = t[i]
+            t1 = t[i+1]
+        else:
+            t0 = t1
+            if (i+1) > (len(t)-1):
+                break
             else:
-                if _event2[1] <= _event1[1]:
-                    if _event1[0] <= _event2[0]:
-                        print("Full overlap (event2's duration)")
-                    else:
-                        print("Partial overlap (event2 end - event1 start)")
-                else:
-                    if _event1[1] <= _event2[0]:
-                        print("No overlap")
-                    elif _event1[0] <= _event2[0]:
-                        print("Partial overlap (event1 end - event2 start)")
-                    else:
-                        print("Full overlap (event1's duration)")
+                t1 = t[i+1]
+
+        print("t0:",t0,",",DayClass.timestamp_to_datestring(t0))
+        print("t1:",t1,",",DayClass.timestamp_to_datestring(t1))
+
+        # Skip gaps
+        if t0 not in [tup[0] for tup in span1] + [tup[0] for tup in span2]: # t0 is not a starting timestamp
+            if t0 in [tup[1] for tup in span1] + [tup[1] for tup in span2]: # t0 is the end of a spanned event
+                continue # This means that there are no events that
+
+        if (t0 in a) and (t0 in b):
+            id0 = 'c'
+        elif (t0 in a):
+            id0 = 'a'
+        elif (t0 in b):
+            id0 = 'b'
+        if (t1 in a) and (t1 in b):
+            id1 = 'c'
+        elif (t1 in a):
+            id1 = 'a'
+        elif (t1 in b):
+            id1 = 'b'
+
+        print("id0:",id0)
+        print("id1:",id1)
+
+        if id0 is id1:
+            if id0 is 'a':
+                timestamps_a.append((t0,t1))
+            if id0 is 'b':
+                timestamps_b.append((t0,t1))
+            if id0 is 'c':
+                timestamps_c.append((t0,t1))
+        else:
+            if id1 is 'b' and id0 is 'a':
+                timestamps_a.append((t0,t1))
+                a.append(t1)
+            elif id1 is 'a' and id0 is 'b':
+                timestamps_b.append((t0,t1))
+                b.append(t1)
+            elif id1 is 'a' and id0 is 'c':
+##                timestamps_a.append((t0,t1))
+##                timestamps_b.append((t0,t1))
+                timestamps_c.append((t0,t1))
+                a.remove(t1)
+                b.append(t1)
+
+                # Add a temporary start value, so loop does not think next is a gap
+                tmp = list(span2)
+                tmp.append((t1,0))
+                span2 = tuple(tmp)
+            elif id1 is 'b' and id0 is 'c':
+##                timestamps_a.append((t0,t1))
+##                timestamps_b.append((t0,t1))
+                timestamps_c.append((t0,t1))
+                b.remove(t1)
+                a.append(t1)
+
+                # Add a temporary start value, so loop does not think next is a gap
+                tmp = list(span1)
+                tmp.append((t1,0))
+                span1 = tuple(tmp)
+
+            elif id1 is 'c' and id0 is 'a':
+                timestamps_a.append((t0,t1))
+                a.remove(t1)
+            elif id1 is 'c' and id0 is 'b':
+                timestamps_b.append((t0,t1))
+                b.remove(t1)
+
+    print('debug')
+
+    return tuple(timestamps_a), tuple(timestamps_b), tuple(timestamps_c)
+
+
+
+##    for _event2 in span2:
+##        for _event1 in span1:
+##            if _event2[1] <= _event1[0]:
+##                temp = DayClass.timestamp_conversion(_event1[1] - _event1[0],'h')
+##                non_overlap1 += temp
+##                print("No overlap.",temp,"hours added to event 1.")
+##            else:
+##                if _event2[1] <= _event1[1]:
+##                    if _event1[0] <= _event2[0]:
+##                        print("Full overlap (event2's duration)")
+##                    else:
+##                        print("Partial overlap (event2 end - event1 start)")
+##                else:
+##                    if _event1[1] <= _event2[0]:
+##                        print("No overlap")
+##                    elif _event1[0] <= _event2[0]:
+##                        print("Partial overlap (event1 end - event2 start)")
+##                    else:
+##                        print("Full overlap (event1's duration)")
 
 ##            if _event1[0] < _event2[1]: # Check start of _event1 is earlier than end of _event2
 ##                if not _event1[0] < _event2[0]: # Check for any overlap: start of _event1 is later than (or equal to) start of _event2
