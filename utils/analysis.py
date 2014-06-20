@@ -9,6 +9,7 @@
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
+import csv
 from utils.resources import DataStore
 from utils.event import DayClass
 
@@ -19,6 +20,12 @@ COMPARE_PARAMETER_DEFAULT_VALUE = {
 ##    'percent': True,
 ##    'duration': True
 }
+
+def write_csv(file,l):
+    try:
+        file.writerow(l)
+    except IOError as e:
+        print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
 def compare_against(data1,data2,**flags):
     """ Compare data1 against data2
@@ -31,43 +38,73 @@ def compare_against(data1,data2,**flags):
         raise Exception('analysis (compare_against) -- Incorrect usage.  Expected DataStore data type.')
 
     # TODO: flags
+    try:
+       csvfile = open('140620.csv', 'w', newline='')
+    except IOError as e:
+        print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
+    try:
+##    filedir = os.path.join(os.path.dirname(__file__), 'reports/')
+
+        head = ['year', 'month', 'day', 'mrislots_total', 'scanop_total', 'mrislots_excess', 'scanop_excess', 'overlap']
+        fwrite = csv.writer(csvfile, delimiter=',')
+        write_csv(fwrite,head)
+
+        span = DayClass.fmt_head.index('span')
+
+        for k in sorted(list(data2.dat.keys())): # Cycle by data2 (e.g. 'scanop')
+            if k in list(data1.dat.keys()): # If timestamp of day is also present in data1 (e.g. 'mrislots')
+
+    ##            print("Spans...")
+    ##            print('mrislots (a)-----')
+    ##            span1 = data1.dat[k].formatted_data_tuple[span]
+    ##            for _event in data1.dat[k].formatted_data_tuple[span]:
+    ##                print("Start:",DayClass.timestamp_to_datestring(_event[0]),", End:",DayClass.timestamp_to_datestring(_event[1]))
+    ##
+    ##            print('scanop (b)-----')
+    ##            span2 = data2.dat[k].formatted_data_tuple[span]
+    ##            for _event in data2.dat[k].formatted_data_tuple[span]:
+    ##                print("Start:",DayClass.timestamp_to_datestring(_event[0]),", End:",DayClass.timestamp_to_datestring(_event[1]))
+
+                write_l = list(DayClass.timestamp_to_timetuple(k)[0:3])
+                write_l.append(data1.dat[k].duration('h'))
+                write_l.append(data2.dat[k].duration('h'))
+
+                excess1, excess2, overlap = span_compare(data1.dat[k].formatted_data_tuple[span],data2.dat[k].formatted_data_tuple[span])
+
+    ##            print()
+    ##            print("Calculations...")
+    ##            print('mrislots excess (a)----')
+                excess1_total = 0
+                for _excess in excess1:
+##                    print("Start:",DayClass.timestamp_to_datestring(_excess[0]),", End:",DayClass.timestamp_to_datestring(_excess[1]))
+##                    print("Duration:",(_excess[1] - _excess[0])/60/60)
+                      excess1_total += (_excess[1] - _excess[0])/60/60
+    ##
+    ##            print('scanop excess (b)----')
+                excess2_total = 0
+                for _excess in excess2:
+##                    print("Start:",DayClass.timestamp_to_datestring(_excess[0]),", End:",DayClass.timestamp_to_datestring(_excess[1]))
+##                    print("Duration:",(_excess[1] - _excess[0])/60/60)
+                    excess2_total += (_excess[1] - _excess[0])/60/60
+    ##
+    ##            print('overlap (c)----')
+                overlap_total = 0
+                for _overlap in overlap:
+##                    print("Start:",DayClass.timestamp_to_datestring(_overlap[0]),", End:",DayClass.timestamp_to_datestring(_overlap[1]))
+##                    print("Duration:",(_overlap[1] - _overlap[0])/60/60)
+                    overlap_total += (_overlap[1] - _overlap[0])/60/60
+
+                write_l.append(excess1_total)
+                write_l.append(excess2_total)
+                write_l.append(overlap_total)
+                write_csv(fwrite,write_l)
+
+##                print('debug')
+
+    finally:
+        csvfile.close()
     span = DayClass.fmt_head.index('span')
-
-    for k in sorted(list(data2.dat.keys())): # Cycle by data2 (e.g. 'scanop')
-        if k in list(data1.dat.keys()): # If timestamp of day is also present in data1 (e.g. 'mrislots')
-
-            print("Spans...")
-            print('mrislots (a)-----')
-            span1 = data1.dat[k].formatted_data_tuple[span]
-            for _event in data1.dat[k].formatted_data_tuple[span]:
-                print("Start:",DayClass.timestamp_to_datestring(_event[0]),", End:",DayClass.timestamp_to_datestring(_event[1]))
-
-            print('scanop (b)-----')
-            span2 = data2.dat[k].formatted_data_tuple[span]
-            for _event in data2.dat[k].formatted_data_tuple[span]:
-                print("Start:",DayClass.timestamp_to_datestring(_event[0]),", End:",DayClass.timestamp_to_datestring(_event[1]))
-
-            excess1, excess2, overlap = span_compare(data1.dat[k].formatted_data_tuple[span],data2.dat[k].formatted_data_tuple[span])
-
-            print()
-            print("Calculations...")
-            print('mrislots excess (a)----')
-            for _excess in excess1:
-                print("Start:",DayClass.timestamp_to_datestring(_excess[0]),", End:",DayClass.timestamp_to_datestring(_excess[1]))
-                print("Duration:",(_excess[1] - _excess[0])/60/60)
-
-            print('scanop excess (b)----')
-            for _excess in excess2:
-                print("Start:",DayClass.timestamp_to_datestring(_excess[0]),", End:",DayClass.timestamp_to_datestring(_excess[1]))
-                print("Duration:",(_excess[1] - _excess[0])/60/60)
-
-            print('overlap (c)----')
-            for _overlap in overlap:
-                print("Start:",DayClass.timestamp_to_datestring(_overlap[0]),", End:",DayClass.timestamp_to_datestring(_overlap[1]))
-                print("Duration:",(_overlap[1] - _overlap[0])/60/60)
-
-            print('debug')
 ##
 ##    for param,v in COMPARE_PARAMETER_DEFALT_VALUE:
 ##        if v:
@@ -139,8 +176,8 @@ def span_compare(span1,span2):
             else:
                 t1 = t[i+1]
 
-        print("t0:",t0,",",DayClass.timestamp_to_datestring(t0))
-        print("t1:",t1,",",DayClass.timestamp_to_datestring(t1))
+##        print("t0:",t0,",",DayClass.timestamp_to_datestring(t0))
+##        print("t1:",t1,",",DayClass.timestamp_to_datestring(t1))
 
         # Skip gaps
         if t0 not in [tup[0] for tup in span1] + [tup[0] for tup in span2]: # t0 is not a starting timestamp
@@ -160,8 +197,8 @@ def span_compare(span1,span2):
         elif (t1 in b):
             id1 = 'b'
 
-        print("id0:",id0)
-        print("id1:",id1)
+##        print("id0:",id0)
+##        print("id1:",id1)
 
         if id0 is id1:
             if id0 is 'a':
@@ -206,8 +243,6 @@ def span_compare(span1,span2):
             elif id1 is 'c' and id0 is 'b':
                 timestamps_b.append((t0,t1))
                 b.remove(t1)
-
-    print('debug')
 
     return tuple(timestamps_a), tuple(timestamps_b), tuple(timestamps_c)
 
